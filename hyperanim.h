@@ -51,7 +51,7 @@ typedef struct HYA_Transition {
 typedef struct HYA_State {
   int state_idx;
   float interp_time;
-  int num_transitions;
+  size_t num_transitions;
   HYA_Transition *transitions;
 } HYA_State;
 
@@ -61,13 +61,13 @@ typedef size_t HYA_NODE_TYPE;
 typedef struct HYA_Node {
   HYA_NODE_ID id;
   HYA_NODE_TYPE type;
-  int num_children;
+  size_t num_children;
   HYA_NODE_ID *children;
 } HYA_Node;
 
 typedef struct HYA_StateMachineNode {
   HYA_Node node;
-  int num_states;
+  size_t num_states;
   HYA_State *states;
 } HYA_StateMachineNode;
 
@@ -80,8 +80,8 @@ typedef struct HYA_MotionNode {
   HYA_Vec3 *translations;  // [num_frames, num_joints]
   HYA_Quat *rotations;     // [num_frames, num_joints]
   float sample_rate;
-  int num_joints;
-  int num_frames;
+  size_t num_joints;
+  size_t num_frames;
   unsigned int flags;
 } HYA_MotionNode;
 
@@ -103,7 +103,7 @@ enum {
 };
 
 typedef struct HYA_Graph {
-  int version;
+  size_t version;
   HYA_NODE_ID root;
 
 #define X(Type, name, NAME)  \

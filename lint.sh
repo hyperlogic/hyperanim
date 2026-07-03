@@ -3,7 +3,7 @@ set -e
 cd "$(dirname "$0")"
 
 # C sources to lint (excluding third-party cook/json.h).
-FILES="hyperanim.h cook/cook.c cook/arena.c cook/arena.h"
+FILES="hyperanim.h cook/cook.c cook/arena.c cook/arena.h cook/nodes.h cook/nodes.c"
 
 # Formatting check; pass --fix to reformat in place.
 if [ "$1" == "--fix" ]; then

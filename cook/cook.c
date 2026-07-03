@@ -9,16 +9,12 @@
 #include "arena.h"
 #include "hyperanim.h"
 #include "json.h"
+#include "nodes.h"
 
 #define STB_DS_IMPLEMENTATION
 #include "stb_ds.h"
 
 size_t g_next_node_id = 1;
-
-typedef struct StrToIdPair {
-  char *key;
-  size_t value;
-} StrToIdPair;
 
 void PrintUsage() {
   printf("cook\n");
@@ -96,60 +92,8 @@ double JSON_NumberToDouble(struct json_number_s *n) {
   return d;
 }
 
-void InitNode(struct json_object_s *object, HYA_Node *node,
-              StrToIdPair **node_map, StrToIdPair *type_map, Arena *arena) {
-  struct json_object_element_s *elem = object->start;
-  while (elem != NULL) {
-    if (0 == strcmp(elem->name->string, "name")) {
-      struct json_string_s *s = json_value_as_string(elem->value);
-      size_t id = shget(*node_map, s->string);
-      if (id != 0) {
-        printf("ERROR: duplicate node name %s\n", s->string);
-        exit(9);
-      }
-      node->id = g_next_node_id++;
-      shput(*node_map, s->string, node->id);
-    } else if (0 == strcmp(elem->name->string, "type")) {
-      struct json_string_s *s = json_value_as_string(elem->value);
-      size_t id = shget(type_map, s->string);
-      if (id == 0) {
-        printf("ERROR: unknown node type %s\n", s->string);
-        exit(10);
-      }
-      node->type = id;
-    }
-    elem = elem->next;
-  }
-  node->num_children = 0;
-  node->children = NULL;
-}
-
-void Init_HYA_StateMachineNode(struct json_object_s *object,
-                               HYA_StateMachineNode *node,
-                               StrToIdPair **node_map, StrToIdPair *type_map,
-                               Arena *arena) {
-  InitNode(object, &node->node, node_map, type_map, arena);
-  return;
-}
-
-void Init_HYA_MotionNode(struct json_object_s *object, HYA_MotionNode *node,
-                         StrToIdPair **node_map, StrToIdPair *type_map,
-                         Arena *arena) {
-  InitNode(object, &node->node, node_map, type_map, arena);
-  return;
-}
-
-void Init_HYA_BlendNode(struct json_object_s *object, HYA_BlendNode *node,
-                        StrToIdPair **node_map, StrToIdPair *type_map,
-                        Arena *arena) {
-  InitNode(object, &node->node, node_map, type_map, arena);
-  return;
-}
-
 void BuildNodes(struct json_array_s *array, HYA_Graph *graph,
                 StrToIdPair **node_map, StrToIdPair *type_map, Arena *arena) {
-  printf("%zu nodes\n", array->length);
-
   // first pass: determine node counts
   struct json_array_element_s *e = array->start;
   while (e != NULL) {
@@ -158,7 +102,7 @@ void BuildNodes(struct json_array_s *array, HYA_Graph *graph,
     while (elem != NULL) {
       if (0 == strcmp(elem->name->string, "type")) {
         struct json_string_s *s = json_value_as_string(elem->value);
-        printf("%s: %s\n", elem->name->string, s->string);
+        assert(s);
 
 #define X(Type, name, NAME)                 \
   else if (0 == strcmp(s->string, #name)) { \
@@ -168,6 +112,16 @@ void BuildNodes(struct json_array_s *array, HYA_Graph *graph,
         }
         HYA_NODE_TYPE_LIST
 #undef X
+      }
+      if (0 == strcmp(elem->name->string, "name")) {
+        struct json_string_s *s = json_value_as_string(elem->value);
+        assert(s);
+        size_t id = shget(*node_map, s->string);
+        if (id != 0) {
+          printf("ERROR: duplicate node name %s\n", s->string);
+          exit(9);
+        }
+        shput(*node_map, s->string, g_next_node_id++);
       }
       elem = elem->next;
     }
@@ -193,12 +147,12 @@ void BuildNodes(struct json_array_s *array, HYA_Graph *graph,
     while (elem != NULL) {
       if (0 == strcmp(elem->name->string, "type")) {
         struct json_string_s *s = json_value_as_string(elem->value);
-        printf("%s: %s\n", elem->name->string, s->string);
+        assert(s);
 
 #define X(Type, name, NAME)                                                \
   if (0 == strcmp(s->string, #name)) {                                     \
     Init_##Type(object, &graph->name##_nodes[graph->num_##name##_nodes++], \
-                node_map, type_map, arena);                                \
+                *node_map, type_map, arena);                               \
   }
         HYA_NODE_TYPE_LIST
 #undef X
@@ -220,14 +174,14 @@ bool BuildGraph(struct json_value_s *root, HYA_Graph **graph,
   while (elem != NULL) {
     if (0 == strcmp(elem->name->string, "version")) {
       long v = JSON_NumberToLong(json_value_as_number(elem->value));
-      printf("%s: %ld\n", elem->name->string, v);
-      g->version = (int)v;
+      g->version = v;
     } else if (0 == strcmp(elem->name->string, "root")) {
       struct json_string_s *s = json_value_as_string(elem->value);
+      assert(s);
       root_name = s->string;
-      printf("%s: %s\n", elem->name->string, root_name);
     } else if (0 == strcmp(elem->name->string, "nodes")) {
       struct json_array_s *array = json_value_as_array(elem->value);
+      assert(array);
       BuildNodes(array, g, node_map, type_map, arena);
     } else {
       printf("WARNING: Unknown key %s, skipping\n", elem->name->string);
@@ -297,6 +251,9 @@ int main(int argc, const char *argv[]) {
     printf("ERROR: BuildGraph failed\n");
     return 6;
   }
+
+  printf("graph using %zu bytes\n", arena->offset);
+  Print_HYA_Graph(graph);
 
   shfree(node_map);
   shfree(type_map);
