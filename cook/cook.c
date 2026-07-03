@@ -13,8 +13,8 @@ void PrintUsage() {
   printf("  cook file.json\n");
 }
 
-char* ReadFile(const char* filename, size_t* out_size) {
-  FILE* fp = fopen(filename, "rb");
+char *ReadFile(const char *filename, size_t *out_size) {
+  FILE *fp = fopen(filename, "rb");
   if (!fp) {
     return NULL;
   }
@@ -27,9 +27,13 @@ char* ReadFile(const char* filename, size_t* out_size) {
     fclose(fp);
     return NULL;
   }
-  rewind(fp);
 
-  char *buf = malloc(size + 1); // +1 for optional NUL terminator
+  if (fseek(fp, 0, SEEK_SET) != 0) {
+    fclose(fp);
+    return NULL;
+  }
+
+  char *buf = malloc(size + 1);  // +1 for optional NUL terminator
   if (!buf) {
     fclose(fp);
     return NULL;
@@ -51,17 +55,17 @@ char* ReadFile(const char* filename, size_t* out_size) {
   return buf;
 }
 
-bool Traverse(struct json_value_s* root) {
-  struct json_object_s* object = (struct json_object_s*)root->payload;
-  struct json_object_element_s* elem = object->start;
-  while(elem != NULL) {
+bool Traverse(struct json_value_s *root) {
+  struct json_object_s *object = (struct json_object_s *)root->payload;
+  struct json_object_element_s *elem = object->start;
+  while (elem != NULL) {
     printf("%s\n", elem->name->string);
     elem = elem->next;
   }
   return true;
 }
 
-int main(int argc, const char* argv[]) {
+int main(int argc, const char *argv[]) {
   if (argc != 2) {
     printf("ERROR: Expected file.json argument\n");
     PrintUsage();
@@ -69,18 +73,20 @@ int main(int argc, const char* argv[]) {
   }
 
   size_t buf_size = 0;
-  const char* buf = ReadFile(argv[1], &buf_size);
+  const char *buf = ReadFile(argv[1], &buf_size);
   if (!buf) {
     printf("ERROR: loading %s\n", argv[1]);
     return 2;
   }
 
-  struct json_value_s* root = json_parse((const void*)buf, buf_size);
+  struct json_value_s *root = json_parse((const void *)buf, buf_size);
   if (!root) {
     printf("ERROR: parsing %s\n", argv[1]);
     return 3;
   }
-  if (root->type != json_type_object) {
+
+  if (root->type != json_type_object) {  // NOLINT
+    free(root);
     printf("ERROR: expected root to a json object\n");
     return 4;
   }
@@ -88,4 +94,6 @@ int main(int argc, const char* argv[]) {
   if (!Traverse(root)) {
     printf("ERROR: traversal failed\n");
   }
+
+  free(root);
 }

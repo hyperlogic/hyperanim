@@ -1,6 +1,7 @@
 /*
-    Copyright (c) 2025 Anthony J. Thibault
-    This software is licensed under the MIT License. See LICENSE for more details.
+  Copyright (c) 2025 Anthony J. Thibault
+  This software is licensed under the MIT License. See LICENSE for more
+  details.
 */
 
 #ifndef HYPERANIM_H
@@ -10,7 +11,7 @@
 #include <stdlib.h>
 
 #if defined(HYA_IMPLEMENTATION)
-#define HYA_API extern inline // Provide external definition
+#define HYA_API extern inline  // Provide external definition
 #endif
 
 typedef struct HYA_Vec3 {
@@ -51,7 +52,7 @@ typedef struct HYA_State {
   int state_idx;
   float interp_time;
   int num_transitions;
-  HYA_Transition* transitions;
+  HYA_Transition *transitions;
 } HYA_State;
 
 typedef int HYA_NODE_ID;
@@ -67,14 +68,13 @@ typedef struct HYA_Node {
   HYA_NODE_ID id;
   HYA_NODE_TYPE type;
   int num_children;
-  HYA_NODE_ID* children;
+  HYA_NODE_ID *children;
 } HYA_Node;
-
 
 typedef struct HYA_StateMachineNode {
   HYA_Node node;
   int num_states;
-  HYA_State* states;
+  HYA_State *states;
 } HYA_StateMachine;
 
 enum {
@@ -83,8 +83,8 @@ enum {
 
 typedef struct HYA_MotionNode {
   HYA_Node node;
-  HYA_Vec3* translations;  // [num_frames, num_joints]
-  HYA_Quat* rotations;  // [num_frames, num_joints]
+  HYA_Vec3 *translations;  // [num_frames, num_joints]
+  HYA_Quat *rotations;     // [num_frames, num_joints]
   float sample_rate;
   int num_joints;
   int num_frames;
@@ -96,14 +96,11 @@ typedef struct HYA_BlendNode {
   HYA_VAR_ID alpha_var;
 } HYA_BlendNode;
 
-
-HYA_Node* HYA_Load(const char* filename);
+HYA_Node *HYA_Load(const char *filename);
 
 #if defined(HYA_IMPLEMENTATION)
 
-HYA_API HYA_Node* HYA_Load(const char* filename) {
-  return NULL;
-}
+HYA_API HYA_Node *HYA_Load(const char *filename) { return NULL; }
 
-#endif // defined(HYA_IMPLEMENTATION)
-#endif // HYPERANIM_H
+#endif  // defined(HYA_IMPLEMENTATION)
+#endif  // HYPERANIM_H

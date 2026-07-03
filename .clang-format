@@ -1,0 +1,13 @@
+---
+BasedOnStyle: Google
+Language: Cpp
+
+IndentWidth: 2
+ColumnLimit: 80
+UseTab: Never
+DerivePointerAlignment: false
+PointerAlignment: Right
+SpacesBeforeTrailingComments: 2
+
+# Don't reorder includes; order can matter with single-header libs
+SortIncludes: Never
