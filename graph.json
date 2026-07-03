@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "root": "main_sm",
+  "nodes": [
+    {
+      "name": "main_sm",
+      "type": "state_machine",
+      "states": [
+        {
+          "name": "idle",
+          "interp_time": 0.2,
+          "transitions": [
+            [
+              {
+                "condition": "on_move",
+                "dst_state": "move"
+              }
+            ]
+          ]
+        },
+        {
+          "name": "move",
+          "imterp_time": 0.2,
+          "transitions": [
+            [
+              {
+                "condition": "!on_move",
+                "dst_state": "idle"
+              }
+            ]
+          ]
+        }
+      ],
+      "children": [
+        "idle_fragment",
+        "move_blend"
+      ]
+    },
+    {
+      "name": "idle_fragment",
+      "type": "fragment",
+      "loop": true,
+      "src": "anim/idle.glb"
+    },
+    {
+      "name": "move_blend",
+      "type": "blend",
+      "alpha": "speed_alpha",
+      "children": [
+        "walk_fragment",
+        "run_fragment"
+      ]
+    },
+    {
+      "name": "walk_fragment",
+      "type": "fragment",
+      "loop": true,
+      "src": "anim/walk.glb"
+    },
+    {
+      "name": "run_fragment",
+      "type": "fragment",
+      "loop": true,
+      "src": "anim/run.glb"
+    }
+  ]
+}
