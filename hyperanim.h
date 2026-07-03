@@ -75,7 +75,7 @@ typedef struct HYA_StateMachineNode {
   HYA_Node node;
   int num_states;
   HYA_State *states;
-} HYA_StateMachine;
+} HYA_StateMachineNode;
 
 enum {
   HYA_MOTION_LOOP = (1 << 0),
@@ -96,11 +96,28 @@ typedef struct HYA_BlendNode {
   HYA_VAR_ID alpha_var;
 } HYA_BlendNode;
 
-HYA_Node *HYA_Load(const char *filename);
+// X(TypeName, field_prefix)
+#define HYA_NODE_TYPE_LIST               \
+  X(HYA_StateMachineNode, state_machine) \
+  X(HYA_MotionNode, motion)              \
+  X(HYA_BlendNode, blend)
+
+typedef struct HYA_Graph {
+  int version;
+  HYA_NODE_ID root;
+
+#define X(Type, name)        \
+  size_t num_##name##_nodes; \
+  Type *name##_nodes;  // NOLINT
+  HYA_NODE_TYPE_LIST
+#undef X
+} HYA_Graph;
+
+HYA_Graph *HYA_Load(const char *filename);
 
 #if defined(HYA_IMPLEMENTATION)
 
-HYA_API HYA_Node *HYA_Load(const char *filename) { return NULL; }
+HYA_API HYA_Graph *HYA_Load(const char *filename) { return NULL; }
 
 #endif  // defined(HYA_IMPLEMENTATION)
 #endif  // HYPERANIM_H

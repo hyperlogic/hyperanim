@@ -32,13 +32,13 @@
         }
       ],
       "children": [
-        "idle_fragment",
+        "idle_motion",
         "move_blend"
       ]
     },
     {
-      "name": "idle_fragment",
-      "type": "fragment",
+      "name": "idle_motion",
+      "type": "motion",
       "loop": true,
       "src": "anim/idle.glb"
     },
@@ -47,19 +47,19 @@
       "type": "blend",
       "alpha": "speed_alpha",
       "children": [
-        "walk_fragment",
-        "run_fragment"
+        "walk_motion",
+        "run_motion"
       ]
     },
     {
-      "name": "walk_fragment",
-      "type": "fragment",
+      "name": "walk_motion",
+      "type": "motion",
       "loop": true,
       "src": "anim/walk.glb"
     },
     {
-      "name": "run_fragment",
-      "type": "fragment",
+      "name": "run_motion",
+      "type": "motion",
       "loop": true,
       "src": "anim/run.glb"
     }
