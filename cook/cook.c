@@ -6,59 +6,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "json.h"
+#include "arena.h"
 #include "hyperanim.h"
+#include "json.h"
 
-typedef struct Arena {
-  unsigned char *base;  // start of the backing buffer
-  size_t offset;        // bytes handed out so far
-  size_t capacity;
-} Arena;
+#define STB_DS_IMPLEMENTATION
+#include "stb_ds.h"
 
-bool ArenaAlloc(Arena **arena, size_t capacity) {
-  assert(arena);
-  Arena *a = (Arena *)malloc(sizeof(Arena));
-  a->base = malloc(capacity);
-  if (!a->base) {
-    free(a);
-    return false;
-  }
-  a->offset = 0;
-  a->capacity = capacity;
-  *arena = a;
-  return true;
-}
+size_t g_next_node_id = 1;
 
-// Round n up to a power-of-two alignment.
-static inline uintptr_t AlignUp(uintptr_t n, size_t align) {
-  assert((align & (align - 1)) == 0 && "alignment must be a power of two");
-  return (n + (align - 1)) & ~(uintptr_t)(align - 1);
-}
-
-void *ArenaAllocFromAligned(Arena *a, size_t size, size_t align) {
-  uintptr_t curr = (uintptr_t)a->base + a->offset;
-  uintptr_t aligned = AlignUp(curr, align);
-  size_t padding = aligned - curr;
-
-  // Overflow-safe capacity check.
-  if ((padding > a->capacity - a->offset) ||
-      (size > a->capacity - a->offset - padding)) {
-    return NULL;  // out of space
-  }
-
-  a->offset += padding + size;
-  return (void *)aligned;  // NOLINT
-}
-
-// Default alignment: safe for any built-in type.
-void *ArenaAllocFrom(Arena *a, size_t size) {
-  return ArenaAllocFromAligned(a, size, _Alignof(max_align_t));
-}
-
-void ArenaFree(Arena *a) {
-  free(a->base);
-  free(a);
-}
+typedef struct StrToIdPair {
+  char *key;
+  size_t value;
+} StrToIdPair;
 
 void PrintUsage() {
   printf("cook\n");
@@ -136,22 +96,58 @@ double JSON_NumberToDouble(struct json_number_s *n) {
   return d;
 }
 
+void InitNode(struct json_object_s *object, HYA_Node *node,
+              StrToIdPair **node_map, StrToIdPair *type_map, Arena *arena) {
+  struct json_object_element_s *elem = object->start;
+  while (elem != NULL) {
+    if (0 == strcmp(elem->name->string, "name")) {
+      struct json_string_s *s = json_value_as_string(elem->value);
+      size_t id = shget(*node_map, s->string);
+      if (id != 0) {
+        printf("ERROR: duplicate node name %s\n", s->string);
+        exit(9);
+      }
+      node->id = g_next_node_id++;
+      shput(*node_map, s->string, node->id);
+    } else if (0 == strcmp(elem->name->string, "type")) {
+      struct json_string_s *s = json_value_as_string(elem->value);
+      size_t id = shget(type_map, s->string);
+      if (id == 0) {
+        printf("ERROR: unknown node type %s\n", s->string);
+        exit(10);
+      }
+      node->type = id;
+    }
+    elem = elem->next;
+  }
+  node->num_children = 0;
+  node->children = NULL;
+}
+
 void Init_HYA_StateMachineNode(struct json_object_s *object,
-                               HYA_StateMachineNode *node, Arena *arena) {
+                               HYA_StateMachineNode *node,
+                               StrToIdPair **node_map, StrToIdPair *type_map,
+                               Arena *arena) {
+  InitNode(object, &node->node, node_map, type_map, arena);
   return;
 }
 
 void Init_HYA_MotionNode(struct json_object_s *object, HYA_MotionNode *node,
+                         StrToIdPair **node_map, StrToIdPair *type_map,
                          Arena *arena) {
+  InitNode(object, &node->node, node_map, type_map, arena);
   return;
 }
 
 void Init_HYA_BlendNode(struct json_object_s *object, HYA_BlendNode *node,
+                        StrToIdPair **node_map, StrToIdPair *type_map,
                         Arena *arena) {
+  InitNode(object, &node->node, node_map, type_map, arena);
   return;
 }
 
-void BuildNodes(struct json_array_s *array, HYA_Graph *graph, Arena *arena) {
+void BuildNodes(struct json_array_s *array, HYA_Graph *graph,
+                StrToIdPair **node_map, StrToIdPair *type_map, Arena *arena) {
   printf("%zu nodes\n", array->length);
 
   // first pass: determine node counts
@@ -164,7 +160,7 @@ void BuildNodes(struct json_array_s *array, HYA_Graph *graph, Arena *arena) {
         struct json_string_s *s = json_value_as_string(elem->value);
         printf("%s: %s\n", elem->name->string, s->string);
 
-#define X(Type, name)                       \
+#define X(Type, name, NAME)                 \
   else if (0 == strcmp(s->string, #name)) { \
     graph->num_##name##_nodes++;            \
   }
@@ -180,7 +176,7 @@ void BuildNodes(struct json_array_s *array, HYA_Graph *graph, Arena *arena) {
 
   // now allocate nodes arrays, and set counts back to zero,
   // for second pass
-#define X(Type, name)                                     \
+#define X(Type, name, NAME)                               \
   if (graph->num_##name##_nodes > 0) {                    \
     graph->name##_nodes = (Type *)ArenaAllocFrom(         \
         arena, sizeof(Type) * graph->num_##name##_nodes); \
@@ -199,10 +195,10 @@ void BuildNodes(struct json_array_s *array, HYA_Graph *graph, Arena *arena) {
         struct json_string_s *s = json_value_as_string(elem->value);
         printf("%s: %s\n", elem->name->string, s->string);
 
-#define X(Type, name)                                                      \
+#define X(Type, name, NAME)                                                \
   if (0 == strcmp(s->string, #name)) {                                     \
     Init_##Type(object, &graph->name##_nodes[graph->num_##name##_nodes++], \
-                arena);                                                    \
+                node_map, type_map, arena);                                \
   }
         HYA_NODE_TYPE_LIST
 #undef X
@@ -213,7 +209,8 @@ void BuildNodes(struct json_array_s *array, HYA_Graph *graph, Arena *arena) {
   }
 }
 
-bool BuildGraph(struct json_value_s *root, HYA_Graph **graph, Arena *arena) {
+bool BuildGraph(struct json_value_s *root, HYA_Graph **graph,
+                StrToIdPair **node_map, StrToIdPair *type_map, Arena *arena) {
   HYA_Graph *g = (HYA_Graph *)ArenaAllocFrom(arena, sizeof(HYA_Graph));
   memset(g, 0, sizeof(HYA_Graph));  // NOLINT
 
@@ -229,16 +226,21 @@ bool BuildGraph(struct json_value_s *root, HYA_Graph **graph, Arena *arena) {
       struct json_string_s *s = json_value_as_string(elem->value);
       root_name = s->string;
       printf("%s: %s\n", elem->name->string, root_name);
-      /// TODO: intern this string
     } else if (0 == strcmp(elem->name->string, "nodes")) {
       struct json_array_s *array = json_value_as_array(elem->value);
-      BuildNodes(array, g, arena);
+      BuildNodes(array, g, node_map, type_map, arena);
     } else {
       printf("WARNING: Unknown key %s, skipping\n", elem->name->string);
     }
     elem = elem->next;
   }
+  g->root = shget(*node_map, root_name);
+  if (g->root == 0) {
+    printf("ERROR: could not find root node %s\n", root_name);
+    return false;
+  }
   *graph = g;
+
   return true;
 }
 
@@ -276,11 +278,28 @@ int main(int argc, const char *argv[]) {
     return 5;
   }
 
+  StrToIdPair *type_map = NULL;
+  sh_new_arena(type_map);
+#define X(Type, name, NAME) shput(type_map, #name, HYA_NODE_TYPE_##NAME + 1);
+  HYA_NODE_TYPE_LIST
+#undef X
+
+  StrToIdPair *node_map = NULL;
+  sh_new_arena(node_map);
+
   HYA_Graph *graph;
-  if (!BuildGraph(root, &graph, arena)) {
-    printf("ERROR: traversal failed\n");
+  if (!BuildGraph(root, &graph, &node_map, type_map, arena)) {
+    shfree(node_map);
+    shfree(type_map);
+    ArenaFree(arena);
+    free(root);
+
+    printf("ERROR: BuildGraph failed\n");
+    return 6;
   }
 
+  shfree(node_map);
+  shfree(type_map);
   ArenaFree(arena);
   free(root);
 }

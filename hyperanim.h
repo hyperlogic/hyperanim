@@ -22,8 +22,8 @@ typedef struct HYA_Quat {
   float x, y, z, w;
 } HYA_Quat;
 
-typedef int HYA_VAR_ID;
-typedef int HYA_VAR_TYPE;
+typedef size_t HYA_VAR_ID;
+typedef size_t HYA_VAR_TYPE;
 
 enum {
   HYA_VAR_TYPE_BOOL = 0,
@@ -55,14 +55,8 @@ typedef struct HYA_State {
   HYA_Transition *transitions;
 } HYA_State;
 
-typedef int HYA_NODE_ID;
-typedef int HYA_NODE_TYPE;
-
-enum {
-  HYA_NODE_TYPE_STATE_MACHINE = 0,
-  HYA_NODE_TYPE_MOTION,
-  HYA_NODE_TYPE_BLEND,
-};
+typedef size_t HYA_NODE_ID;
+typedef size_t HYA_NODE_TYPE;
 
 typedef struct HYA_Node {
   HYA_NODE_ID id;
@@ -97,16 +91,22 @@ typedef struct HYA_BlendNode {
 } HYA_BlendNode;
 
 // X(TypeName, field_prefix)
-#define HYA_NODE_TYPE_LIST               \
-  X(HYA_StateMachineNode, state_machine) \
-  X(HYA_MotionNode, motion)              \
-  X(HYA_BlendNode, blend)
+#define HYA_NODE_TYPE_LIST                              \
+  X(HYA_StateMachineNode, state_machine, STATE_MACHINE) \
+  X(HYA_MotionNode, motion, MOTION)                     \
+  X(HYA_BlendNode, blend, BLEND)
+
+enum {
+#define X(Type, name, NAME) HYA_NODE_TYPE_##NAME,
+  HYA_NODE_TYPE_LIST
+#undef X
+};
 
 typedef struct HYA_Graph {
   int version;
   HYA_NODE_ID root;
 
-#define X(Type, name)        \
+#define X(Type, name, NAME)  \
   size_t num_##name##_nodes; \
   Type *name##_nodes;  // NOLINT
   HYA_NODE_TYPE_LIST

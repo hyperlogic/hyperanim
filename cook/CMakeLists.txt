@@ -5,6 +5,7 @@ set(CMAKE_C_STANDARD 11)
 
 # Build application
 add_executable(${PROJECT_NAME}
+  arena.c
   cook.c
 )
 
