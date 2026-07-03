@@ -6,6 +6,9 @@
 #ifndef HYPERANIM_H
 #define HYPERANIM_H
 
+#include <stdbool.h>
+#include <stdlib.h>
+
 #if defined(HYA_IMPLEMENTATION)
 #define HYA_API extern inline // Provide external definition
 #endif
@@ -31,8 +34,8 @@ typedef struct HYA_Var {
   union {
     bool b;
     float f;
-  } data;
-};
+  };
+} HYA_Var;
 
 typedef struct HYA_Condition {
   HYA_VAR_ID var;
@@ -92,3 +95,15 @@ typedef struct HYA_BlendNode {
   HYA_Node node;
   HYA_VAR_ID alpha_var;
 } HYA_BlendNode;
+
+
+HYA_Node* HYA_Load(const char* filename);
+
+#if defined(HYA_IMPLEMENTATION)
+
+HYA_API HYA_Node* HYA_Load(const char* filename) {
+  return NULL;
+}
+
+#endif // defined(HYA_IMPLEMENTATION)
+#endif // HYPERANIM_H
