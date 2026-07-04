@@ -28,4 +28,6 @@ HYA_Result ContextCreate(Context **ctx, size_t arena_size);
 void ContextDeinit(Context *ctx);
 void ContextDestroy(Context *ctx);
 
+HYA_STR_ID ContextAddString(Context *ctx, const char* str);
+
 #endif  // CONTEXT_H

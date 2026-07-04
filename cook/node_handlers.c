@@ -65,12 +65,7 @@ HYA_Result Init_HYA_Node(struct json_object_s *object, HYA_Node *node,
         return HYA_ERR_FAILURE;
       }
       node->id = id;
-      id = shget(ctx->str_map, s->string);
-      if (id < 0) {
-        id = ctx->next_str_id++;
-        shput(ctx->str_map, s->string, id);
-      }
-      node->name = id;
+      node->name = ContextAddString(ctx, s->string);
     } else if (0 == strcmp(elem->name->string, "type")) {
       struct json_string_s *s = json_value_as_string(elem->value);
       if (!s) {
@@ -163,11 +158,7 @@ static HYA_Result Init_HYA_Transition(struct json_object_s *object,
         shput(ctx->var_map, s->string, var_id);
       }
       transition->var_id = var_id;
-      int str_id = shget(ctx->str_map, s->string);
-      if (str_id < 0) {
-        str_id = ctx->next_str_id++;
-        shput(ctx->str_map, s->string, str_id);
-      }
+      ContextAddString(ctx, s->string);
     } else if (0 == strcmp(elem->name->string, "dst_state")) {
       struct json_string_s *s = json_value_as_string(elem->value);
       if (!s) {
@@ -210,12 +201,7 @@ static HYA_Result Init_HYA_State(struct json_object_s *object, HYA_State *state,
         exit(13);
       }
       state->state_idx = id;
-      id = shget(ctx->str_map, s->string);
-      if (id < 0) {
-        id = ctx->next_str_id++;
-        shput(ctx->str_map, s->string, id);
-      }
-      state->name = id;
+      state->name = ContextAddString(ctx, s->string);
     } else if (0 == strcmp(elem->name->string, "interp_time")) {
       struct json_number_s *n = json_value_as_number(elem->value);
       if (!n) {

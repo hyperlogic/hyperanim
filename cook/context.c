@@ -39,3 +39,12 @@ void ContextDestroy(Context *ctx) {
   ContextDeinit(ctx);
   free(ctx);
 }
+
+HYA_STR_ID ContextAddString(Context *ctx, const char* str) {
+  int str_id = shget(ctx->str_map, str);
+  if (str_id < 0) {
+    str_id = ctx->next_str_id++;
+    shput(ctx->str_map, str, str_id);
+  }
+  return str_id;
+}
