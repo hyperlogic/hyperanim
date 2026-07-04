@@ -10,24 +10,20 @@
           "name": "idle",
           "interp_time": 0.2,
           "transitions": [
-            [
-              {
-                "condition": "on_move",
-                "dst_state": "move"
-              }
-            ]
+            {
+              "var": "on_move",
+              "dst_state": "move"
+            }
           ]
         },
         {
           "name": "move",
-          "imterp_time": 0.2,
+          "interp_time": 0.2,
           "transitions": [
-            [
-              {
-                "condition": "!on_move",
-                "dst_state": "idle"
-              }
-            ]
+            {
+              "var": "on_idle",
+              "dst_state": "idle"
+            }
           ]
         }
       ],

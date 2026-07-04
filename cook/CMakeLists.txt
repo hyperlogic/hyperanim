@@ -3,6 +3,11 @@ set(PROJECT_NAME cook)
 project(${PROJECT_NAME} LANGUAGES C)
 set(CMAKE_C_STANDARD 11)
 
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
+endif()
+set(CMAKE_C_FLAGS_DEBUG "-g -O0")
+
 # Build application
 add_executable(${PROJECT_NAME}
   arena.c

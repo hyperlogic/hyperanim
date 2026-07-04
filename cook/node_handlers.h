@@ -13,13 +13,16 @@
 
 typedef struct StrToIdPair {
   char *key;
-  size_t value;
+  int value;
 } StrToIdPair;
 
 typedef struct Context {
   HYA_Graph *graph;
   StrToIdPair *node_map;
+  int next_node_id;
   StrToIdPair *type_map;
+  StrToIdPair *var_map;
+  int next_var_id;
   Arena *arena;
 } Context;
 

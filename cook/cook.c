@@ -14,8 +14,6 @@
 #define STB_DS_IMPLEMENTATION
 #include "stb_ds.h"
 
-size_t g_next_node_id = 1;
-
 void PrintUsage() {
   printf("cook\n");
   printf("\n");
@@ -65,7 +63,7 @@ char *ReadFile(const char *filename, size_t *out_size) {
   return buf;
 }
 
-long JSON_NumberToLong(struct json_number_s *n) {
+static long JSON_NumberToLong(struct json_number_s *n) {
   char *end;
   errno = 0;
   long v = strtol(n->number, &end, 10);
@@ -78,18 +76,6 @@ long JSON_NumberToLong(struct json_number_s *n) {
     return 0;
   }
   return v;
-}
-
-double JSON_NumberToDouble(struct json_number_s *n) {
-  char *end;
-  errno = 0;
-  double d = strtod(n->number, &end);
-  if (end == n->number || *end != '\0') {
-    // didn't consume the whole thing — malformed (shouldn't happen
-    // on library output, but worth guarding if you ever feed it elsewhere)
-    return 0.0f;
-  }
-  return d;
 }
 
 void BuildNodes(struct json_array_s *array, HYA_Graph *graph, Context *ctx) {
@@ -115,12 +101,12 @@ void BuildNodes(struct json_array_s *array, HYA_Graph *graph, Context *ctx) {
       if (0 == strcmp(elem->name->string, "name")) {
         struct json_string_s *s = json_value_as_string(elem->value);
         assert(s);
-        size_t id = shget(ctx->node_map, s->string);
-        if (id != 0) {
+        int id = shget(ctx->node_map, s->string);
+        if (id >= 0) {
           printf("ERROR: duplicate node name %s\n", s->string);
           exit(9);
         }
-        shput(ctx->node_map, s->string, g_next_node_id++);
+        shput(ctx->node_map, s->string, ctx->next_node_id++);
       }
       elem = elem->next;
     }
@@ -187,7 +173,7 @@ bool BuildGraph(struct json_value_s *root, HYA_Graph **graph, Context *ctx) {
     elem = elem->next;
   }
   g->root = shget(ctx->node_map, root_name);
-  if (g->root == 0) {
+  if (g->root < 0) {
     printf("ERROR: could not find root node %s\n", root_name);
     return false;
   }
@@ -223,6 +209,10 @@ int main(int argc, const char *argv[]) {
   }
 
   Context ctx = {0};
+  shdefault(ctx.node_map, -1);
+  shdefault(ctx.type_map, -1);
+  shdefault(ctx.var_map, -1);
+
   const size_t ARENA_SIZE = (size_t)10 * 1024 * 1024;
   if (!ArenaAlloc(&ctx.arena, ARENA_SIZE)) {
     free(root);
@@ -230,8 +220,7 @@ int main(int argc, const char *argv[]) {
     return 5;
   }
 
-#define X(Type, name, NAME) \
-  shput(ctx.type_map, #name, HYA_NODE_TYPE_##NAME + 1);
+#define X(Type, name, NAME) shput(ctx.type_map, #name, HYA_NODE_TYPE_##NAME);
   HYA_NODE_TYPE_LIST
 #undef X
 
@@ -239,6 +228,7 @@ int main(int argc, const char *argv[]) {
   if (!BuildGraph(root, &graph, &ctx)) {
     shfree(ctx.node_map);
     shfree(ctx.type_map);
+    shfree(ctx.var_map);
     ArenaFree(ctx.arena);
     free(root);
 
@@ -251,6 +241,7 @@ int main(int argc, const char *argv[]) {
 
   shfree(ctx.node_map);
   shfree(ctx.type_map);
+  shfree(ctx.var_map);
   ArenaFree(ctx.arena);
   free(root);
 }

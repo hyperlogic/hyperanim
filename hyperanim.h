@@ -22,8 +22,8 @@ typedef struct HYA_Quat {
   float x, y, z, w;
 } HYA_Quat;
 
-typedef size_t HYA_VAR_ID;
-typedef size_t HYA_VAR_TYPE;
+typedef int HYA_VAR_ID;
+typedef int HYA_VAR_TYPE;
 
 enum {
   HYA_VAR_TYPE_BOOL = 0,
@@ -38,13 +38,8 @@ typedef struct HYA_Var {
   };
 } HYA_Var;
 
-typedef struct HYA_Condition {
-  HYA_VAR_ID var;
-  bool negate;
-} HYA_Condition;
-
 typedef struct HYA_Transition {
-  HYA_Condition condition;
+  HYA_VAR_ID var_id;
   int dst_state_idx;
 } HYA_Transition;
 
@@ -55,7 +50,7 @@ typedef struct HYA_State {
   HYA_Transition *transitions;
 } HYA_State;
 
-typedef size_t HYA_NODE_ID;
+typedef int HYA_NODE_ID;
 typedef size_t HYA_NODE_TYPE;
 
 typedef struct HYA_Node {
