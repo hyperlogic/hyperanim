@@ -148,7 +148,8 @@ void BuildNodes(struct json_array_s *array, HYA_Graph *graph, Context *ctx) {
   }
 }
 
-bool BuildGraph(struct json_value_s *root, HYA_Graph **graph, Context *ctx) {
+HYA_Result BuildGraph(struct json_value_s *root, HYA_Graph **graph,
+                      Context *ctx) {
   HYA_Graph *g = (HYA_Graph *)ArenaAllocFrom(ctx->arena, sizeof(HYA_Graph));
   memset(g, 0, sizeof(HYA_Graph));  // NOLINT
 
@@ -215,9 +216,10 @@ int main(int argc, const char *argv[]) {
 
   Context ctx;
   const size_t ARENA_SIZE = (size_t)10 * 1024 * 1024;
-  if (!ContextInit(&ctx, ARENA_SIZE)) {
+  HYA_Result res = ContextInit(&ctx, ARENA_SIZE);
+  if (res != HYA_OK) {
     free(root);
-    printf("ERROR: ContextInit failed\n");
+    printf("ERROR: ContextInit failed: %d\n", res);
     return 5;
   }
 
@@ -225,7 +227,7 @@ int main(int argc, const char *argv[]) {
   HYA_NODE_TYPE_LIST
 #undef X
 
-  HYA_Graph *graph;
+  HYA_Graph *graph = NULL;
   if (!BuildGraph(root, &graph, &ctx)) {
     ContextDeinit(&ctx);
     free(root);

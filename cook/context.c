@@ -11,9 +11,10 @@ HYA_Result ContextInit(Context *ctx, size_t arena_size) {
   shdefault(ctx->type_map, -1);
   shdefault(ctx->var_map, -1);
   shdefault(ctx->str_map, -1);
-  if (!ArenaCreate(&ctx->arena, arena_size)) {
-    printf("ERROR allocating arena\n");
-    return HYA_ERR_FAILURE;
+  HYA_Result res = ArenaCreate(&ctx->arena, arena_size);
+  if (res != HYA_OK) {
+    printf("ERROR ArenaCreate failure %d\n", res);
+    return res;
   }
   return HYA_OK;
 }
