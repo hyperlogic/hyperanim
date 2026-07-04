@@ -30,6 +30,8 @@ typedef struct HYA_Quat {
   float x, y, z, w;
 } HYA_Quat;
 
+typedef int HYA_STR_ID;
+
 typedef int HYA_VAR_ID;
 typedef int HYA_VAR_TYPE;
 
@@ -53,6 +55,7 @@ typedef struct HYA_Transition {
 
 typedef struct HYA_State {
   int state_idx;
+  HYA_STR_ID name;
   float interp_time;
   size_t num_transitions;
   HYA_Transition *transitions;
@@ -64,6 +67,7 @@ typedef size_t HYA_NODE_TYPE;
 typedef struct HYA_Node {
   HYA_NODE_ID id;
   HYA_NODE_TYPE type;
+  HYA_STR_ID name;
   size_t num_children;
   HYA_NODE_ID *children;
 } HYA_Node;
@@ -115,8 +119,13 @@ typedef struct HYA_Graph {
   HYA_NODE_TYPE_LIST
 #undef X
 
+  // use HYA_NODE_ID to index into this array
   size_t num_node_ptrs;
   HYA_Node **node_ptrs;
+
+  // use HYA_STR_ID to index into this array
+  size_t num_str_ptrs;
+  const char **str_ptrs;
 
 } HYA_Graph;
 

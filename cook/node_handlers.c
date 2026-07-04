@@ -22,20 +22,23 @@ void Print_HYA_Graph(const HYA_Graph *graph) {
   printf("  root = %d\n", graph->root);
 #define X(Type, name, NAME)                                \
   for (size_t i = 0; i < graph->num_##name##_nodes; i++) { \
-    Print_##Type(&graph->name##_nodes[i]);                 \
+    Print_##Type(graph, &graph->name##_nodes[i]);          \
   }
   HYA_NODE_TYPE_LIST
 #undef X
   printf("}\n");
 }
 
-void Print_HYA_Node(const HYA_Node *node) {
+void Print_HYA_Node(const HYA_Graph *graph, const HYA_Node *node) {
   printf("      id = %d\n", node->id);
   printf("      type = %zu\n", node->type);
+  printf("      name = %s\n", graph->str_ptrs[node->name]);
   printf("      num_children = %zu\n", node->num_children);
   printf("      children = [");
   for (size_t i = 0; i < node->num_children; i++) {
-    printf("%d", node->children[i]);
+    HYA_NODE_ID id = node->children[i];
+    HYA_Node *child = graph->node_ptrs[id];
+    printf("%s", graph->str_ptrs[child->name]);
     if (i != node->num_children - 1) {
       printf(", ");
     }
@@ -59,6 +62,12 @@ HYA_Result Init_HYA_Node(struct json_object_s *object, HYA_Node *node,
         return HYA_ERR_FAILURE;
       }
       node->id = id;
+      id = shget(ctx->str_map, s->string);
+      if (id < 0) {
+        id = ctx->next_str_id++;
+        shput(ctx->str_map, s->string, id);
+      }
+      node->name = id;
     } else if (0 == strcmp(elem->name->string, "type")) {
       struct json_string_s *s = json_value_as_string(elem->value);
       if (!s) {
@@ -107,9 +116,10 @@ HYA_Result Init_HYA_Node(struct json_object_s *object, HYA_Node *node,
   return HYA_OK;
 }
 
-static void Print_HYA_State(const HYA_State *state) {
+static void Print_HYA_State(const HYA_Graph *graph, const HYA_State *state) {
   printf("        {\n");
   printf("          state_idx = %d\n", state->state_idx);
+  printf("          name = %s\n", graph->str_ptrs[state->name]);
   printf("          interp_time = %.3f\n", state->interp_time);
   printf("          transitions = [\n");
   for (size_t i = 0; i < state->num_transitions; i++) {
@@ -120,12 +130,13 @@ static void Print_HYA_State(const HYA_State *state) {
   printf("        }\n");
 }
 
-void Print_HYA_StateMachineNode(const HYA_StateMachineNode *node) {
+void Print_HYA_StateMachineNode(const HYA_Graph *graph,
+                                const HYA_StateMachineNode *node) {
   printf("    StateMachineNode {\n");
-  Print_HYA_Node(&node->node);
+  Print_HYA_Node(graph, &node->node);
   printf("      states = [\n");
   for (size_t i = 0; i < node->num_states; i++) {
-    Print_HYA_State(&node->states[i]);
+    Print_HYA_State(graph, &node->states[i]);
   }
   printf("      ]\n");
   printf("    }\n");
@@ -191,6 +202,12 @@ static HYA_Result Init_HYA_State(struct json_object_s *object, HYA_State *state,
         exit(13);
       }
       state->state_idx = id;
+      id = shget(ctx->str_map, s->string);
+      if (id < 0) {
+        id = ctx->next_str_id++;
+        shput(ctx->str_map, s->string, id);
+      }
+      state->name = id;
     } else if (0 == strcmp(elem->name->string, "interp_time")) {
       struct json_number_s *n = json_value_as_number(elem->value);
       if (!n) {
@@ -315,9 +332,9 @@ HYA_Result Init_HYA_StateMachineNode(struct json_object_s *object,
   return HYA_OK;
 }
 
-void Print_HYA_MotionNode(const HYA_MotionNode *node) {
+void Print_HYA_MotionNode(const HYA_Graph *graph, const HYA_MotionNode *node) {
   printf("    MotionNode {\n");
-  Print_HYA_Node(&node->node);
+  Print_HYA_Node(graph, &node->node);
   printf("    }\n");
 }
 
@@ -333,9 +350,9 @@ HYA_Result Init_HYA_MotionNode(struct json_object_s *object,
   return HYA_OK;
 }
 
-void Print_HYA_BlendNode(const HYA_BlendNode *node) {
+void Print_HYA_BlendNode(const HYA_Graph *graph, const HYA_BlendNode *node) {
   printf("    BlendNode {\n");
-  Print_HYA_Node(&node->node);
+  Print_HYA_Node(graph, &node->node);
   printf("    }\n");
 }
 

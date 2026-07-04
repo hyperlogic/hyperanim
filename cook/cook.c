@@ -230,6 +230,31 @@ HYA_Result BuildGraph(struct json_value_s *root, HYA_Graph **graph,
   HYA_NODE_TYPE_LIST
 #undef X
 
+  // create ptrs to each string in the str_map
+  g->num_str_ptrs = (size_t)ctx->next_str_id;
+  char **str_ptrs =
+      (char **)ArenaAllocFrom(ctx->arena, sizeof(char *) * g->num_str_ptrs);
+  if (!str_ptrs) {
+    printf("ERROR: BuildGraph str_ptrs alloc failed\n");
+    return HYA_ERR_OUT_OF_MEMORY;
+  }
+  ptrdiff_t n = shlen(ctx->str_map);  // number of pairs
+  for (ptrdiff_t i = 0; i < n; i++) {
+    char *key = ctx->str_map[i].key;
+    size_t value = ctx->str_map[i].value;
+
+    // copy key from map into ctx->arena
+    size_t len = strlen(key);  // NOLINT
+    char *arena_str = (char *)ArenaAllocFrom(ctx->arena, len + 1);
+    strcpy(arena_str, key);  // NOLINT
+    arena_str[len] = 0;
+
+    str_ptrs[value] = arena_str;
+
+    // printf("str_ptrs[%zu] = %s\n", value, arena_str);
+  }
+  g->str_ptrs = (const char **)str_ptrs;
+
   *graph = g;
 
   return HYA_OK;

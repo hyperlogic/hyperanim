@@ -19,6 +19,7 @@ typedef struct Context {
   StrToIdPair *var_map;
   int next_var_id;
   StrToIdPair *str_map;
+  int next_str_id;
   Arena *arena;
 } Context;
 
