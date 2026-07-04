@@ -114,6 +114,10 @@ typedef struct HYA_Graph {
   Type *name##_nodes;  // NOLINT
   HYA_NODE_TYPE_LIST
 #undef X
+
+  size_t num_node_ptrs;
+  HYA_Node **node_ptrs;
+
 } HYA_Graph;
 
 HYA_Graph *HYA_Load(const char *filename);

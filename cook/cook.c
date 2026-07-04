@@ -212,6 +212,24 @@ HYA_Result BuildGraph(struct json_value_s *root, HYA_Graph **graph,
     return HYA_ERR_FAILURE;
   }
 
+  // create ptrs to each node with node id as in index.
+  g->num_node_ptrs = (size_t)ctx->next_node_id;
+  g->node_ptrs = (HYA_Node **)ArenaAllocFrom(
+      ctx->arena, sizeof(HYA_Node *) * g->num_node_ptrs);
+  if (!g->node_ptrs) {
+    printf("ERROR: BuildGraph node_ptrs alloc failed\n");
+    return HYA_ERR_OUT_OF_MEMORY;
+  }
+
+#define X(Type, name, NAME)                            \
+  for (size_t i = 0; i < g->num_##name##_nodes; i++) { \
+    Type *node = &g->name##_nodes[i]; /* NOLINT */     \
+    assert(node && node->node.id >= 0);                \
+    g->node_ptrs[node->node.id] = (HYA_Node *)node;    \
+  }
+  HYA_NODE_TYPE_LIST
+#undef X
+
   *graph = g;
 
   return HYA_OK;
@@ -266,6 +284,9 @@ int main(int argc, const char *argv[]) {
   res = BuildGraph(root, &graph, &ctx);
   if (res != HYA_OK) {
     printf("ERROR: BuildGraph failed: %d\n", res);
+    if (res == HYA_ERR_OUT_OF_MEMORY) {
+      printf("Try increasing ARENA_SIZE, currently %zu bytes\n", ARENA_SIZE);
+    }
     ContextDeinit(&ctx);
     free(root);
     return res;

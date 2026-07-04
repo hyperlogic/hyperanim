@@ -80,6 +80,10 @@ HYA_Result Init_HYA_Node(struct json_object_s *object, HYA_Node *node,
       node->num_children = a->length;
       node->children =
           ArenaAllocFrom(ctx->arena, sizeof(HYA_NODE_ID) * node->num_children);
+      if (!node->children) {
+        printf("ERROR: Init_HYA_Node children allocation failed\n");
+        return HYA_ERR_OUT_OF_MEMORY;
+      }
       struct json_array_element_s *e = a->start;
       int i = 0;
       while (e != NULL) {
@@ -204,6 +208,10 @@ static HYA_Result Init_HYA_State(struct json_object_s *object, HYA_State *state,
       state->num_transitions = array->length;
       state->transitions = (HYA_Transition *)ArenaAllocFrom(
           ctx->arena, sizeof(HYA_Transition) * array->length);
+      if (!state->transitions) {
+        printf("ERROR: Init_HYA_State state->transitions alloc failed\n");
+        return HYA_ERR_OUT_OF_MEMORY;
+      }
       struct json_array_element_s *el = array->start;
       int j = 0;
       while (el != NULL) {
