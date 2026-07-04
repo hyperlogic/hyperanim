@@ -7,7 +7,7 @@ set(CMAKE_C_STANDARD 11)
 add_executable(${PROJECT_NAME}
   arena.c
   cook.c
-  nodes.c
+  node_handlers.c
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/..)

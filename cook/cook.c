@@ -9,7 +9,7 @@
 #include "arena.h"
 #include "hyperanim.h"
 #include "json.h"
-#include "nodes.h"
+#include "node_handlers.h"
 
 #define STB_DS_IMPLEMENTATION
 #include "stb_ds.h"

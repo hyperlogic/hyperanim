@@ -1,9 +1,21 @@
-#include "nodes.h"
+#include "node_handlers.h"
 
 #include <assert.h>
 #include <stdio.h>
 
 #include "stb_ds.h"
+
+void Print_HYA_Graph(const HYA_Graph *graph) {
+  printf("{\n");
+  printf("  version = %zu\n", graph->version);
+  printf("  root = %zu\n", graph->root);
+#define X(Type, name, NAME)                                \
+  for (size_t i = 0; i < graph->num_##name##_nodes; i++) { \
+    Print_##Type(&graph->name##_nodes[i]);                 \
+  }
+  HYA_NODE_TYPE_LIST
+#undef X
+}
 
 void Print_HYA_Node(const HYA_Node *node) {
   printf("      id = %zu\n", node->id);
@@ -17,36 +29,6 @@ void Print_HYA_Node(const HYA_Node *node) {
     }
   }
   printf("]\n");
-}
-
-void Print_HYA_StateMachineNode(const HYA_StateMachineNode *node) {
-  printf("    StateMachineNode {\n");
-  Print_HYA_Node(&node->node);
-  printf("    }\n");
-}
-
-void Print_HYA_MotionNode(const HYA_MotionNode *node) {
-  printf("    MotionNode {\n");
-  Print_HYA_Node(&node->node);
-  printf("    }\n");
-}
-
-void Print_HYA_BlendNode(const HYA_BlendNode *node) {
-  printf("    BlendNode {\n");
-  Print_HYA_Node(&node->node);
-  printf("    }\n");
-}
-
-void Print_HYA_Graph(const HYA_Graph *graph) {
-  printf("{\n");
-  printf("  version = %zu\n", graph->version);
-  printf("  root = %zu\n", graph->root);
-#define X(Type, name, NAME)                                \
-  for (size_t i = 0; i < graph->num_##name##_nodes; i++) { \
-    Print_##Type(&graph->name##_nodes[i]);                 \
-  }
-  HYA_NODE_TYPE_LIST
-#undef X
 }
 
 void Init_HYA_Node(struct json_object_s *object, HYA_Node *node,
@@ -97,6 +79,12 @@ void Init_HYA_Node(struct json_object_s *object, HYA_Node *node,
   }
 }
 
+void Print_HYA_StateMachineNode(const HYA_StateMachineNode *node) {
+  printf("    StateMachineNode {\n");
+  Print_HYA_Node(&node->node);
+  printf("    }\n");
+}
+
 void Init_HYA_StateMachineNode(struct json_object_s *object,
                                HYA_StateMachineNode *node,
                                StrToIdPair *node_map, StrToIdPair *type_map,
@@ -105,11 +93,23 @@ void Init_HYA_StateMachineNode(struct json_object_s *object,
   return;
 }
 
+void Print_HYA_MotionNode(const HYA_MotionNode *node) {
+  printf("    MotionNode {\n");
+  Print_HYA_Node(&node->node);
+  printf("    }\n");
+}
+
 void Init_HYA_MotionNode(struct json_object_s *object, HYA_MotionNode *node,
                          StrToIdPair *node_map, StrToIdPair *type_map,
                          Arena *arena) {
   Init_HYA_Node(object, &node->node, node_map, type_map, arena);
   return;
+}
+
+void Print_HYA_BlendNode(const HYA_BlendNode *node) {
+  printf("    BlendNode {\n");
+  Print_HYA_Node(&node->node);
+  printf("    }\n");
 }
 
 void Init_HYA_BlendNode(struct json_object_s *object, HYA_BlendNode *node,
