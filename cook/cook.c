@@ -172,11 +172,16 @@ bool BuildGraph(struct json_value_s *root, HYA_Graph **graph, Context *ctx) {
     }
     elem = elem->next;
   }
+  if (!root_name) {
+    printf("ERROR: could not no root_node\n");
+    return false;
+  }
   g->root = shget(ctx->node_map, root_name);
   if (g->root < 0) {
     printf("ERROR: could not find root node %s\n", root_name);
     return false;
   }
+
   *graph = g;
 
   return true;
@@ -208,15 +213,11 @@ int main(int argc, const char *argv[]) {
     return 4;
   }
 
-  Context ctx = {0};
-  shdefault(ctx.node_map, -1);
-  shdefault(ctx.type_map, -1);
-  shdefault(ctx.var_map, -1);
-
+  Context ctx;
   const size_t ARENA_SIZE = (size_t)10 * 1024 * 1024;
-  if (!ArenaAlloc(&ctx.arena, ARENA_SIZE)) {
+  if (!ContextInit(&ctx, ARENA_SIZE)) {
     free(root);
-    printf("ERROR allocating arena\n");
+    printf("ERROR: ContextInit failed\n");
     return 5;
   }
 
@@ -226,12 +227,8 @@ int main(int argc, const char *argv[]) {
 
   HYA_Graph *graph;
   if (!BuildGraph(root, &graph, &ctx)) {
-    shfree(ctx.node_map);
-    shfree(ctx.type_map);
-    shfree(ctx.var_map);
-    ArenaFree(ctx.arena);
+    ContextDeinit(&ctx);
     free(root);
-
     printf("ERROR: BuildGraph failed\n");
     return 6;
   }
@@ -239,9 +236,6 @@ int main(int argc, const char *argv[]) {
   printf("graph using %zu bytes\n", ctx.arena->offset);
   Print_HYA_Graph(graph);
 
-  shfree(ctx.node_map);
-  shfree(ctx.type_map);
-  shfree(ctx.var_map);
-  ArenaFree(ctx.arena);
+  ContextDeinit(&ctx);
   free(root);
 }

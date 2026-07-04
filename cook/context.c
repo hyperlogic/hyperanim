@@ -1,0 +1,40 @@
+#include "context.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "stb_ds.h"
+
+HYA_Result ContextInit(Context *ctx, size_t arena_size) {
+  memset(ctx, 0, sizeof(Context));
+  shdefault(ctx->node_map, -1);
+  shdefault(ctx->type_map, -1);
+  shdefault(ctx->var_map, -1);
+  shdefault(ctx->str_map, -1);
+  if (!ArenaCreate(&ctx->arena, arena_size)) {
+    printf("ERROR allocating arena\n");
+    return HYA_ERR_FAILURE;
+  }
+  return HYA_OK;
+}
+
+HYA_Result ContextCreate(Context **ctx, size_t arena_size) {
+  *ctx = (Context *)malloc(sizeof(Context));
+  if (!*ctx) {
+    return HYA_ERR_OUT_OF_MEMORY;
+  }
+  return ContextInit(*ctx, arena_size);
+}
+
+void ContextDeinit(Context *ctx) {
+  ArenaDestroy(ctx->arena);
+  shfree(ctx->node_map);
+  shfree(ctx->type_map);
+  shfree(ctx->var_map);
+  shfree(ctx->str_map);
+}
+
+void ContextDestroy(Context *ctx) {
+  ContextDeinit(ctx);
+  free(ctx);
+}

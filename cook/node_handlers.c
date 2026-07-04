@@ -44,7 +44,6 @@ void Print_HYA_Node(const HYA_Node *node) {
 }
 
 void Init_HYA_Node(struct json_object_s *object, HYA_Node *node, Context *ctx) {
-  memset(node, 0, sizeof(HYA_Node));  // NOLINT
   struct json_object_element_s *elem = object->start;
   while (elem != NULL) {
     if (0 == strcmp(elem->name->string, "name")) {
@@ -177,6 +176,7 @@ void Init_HYA_State(struct json_object_s *object, HYA_State *state,
 
 void Init_HYA_StateMachineNode(struct json_object_s *object,
                                HYA_StateMachineNode *node, Context *ctx) {
+  memset(node, 0, sizeof(HYA_StateMachineNode));  // NOLINT
   Init_HYA_Node(object, &node->node, ctx);
   struct json_object_element_s *element = object->start;
   StrToIdPair *state_map = NULL;
@@ -235,6 +235,7 @@ void Print_HYA_MotionNode(const HYA_MotionNode *node) {
 
 void Init_HYA_MotionNode(struct json_object_s *object, HYA_MotionNode *node,
                          Context *ctx) {
+  memset(node, 0, sizeof(HYA_MotionNode));  // NOLINT
   Init_HYA_Node(object, &node->node, ctx);
   return;
 }
@@ -247,6 +248,7 @@ void Print_HYA_BlendNode(const HYA_BlendNode *node) {
 
 void Init_HYA_BlendNode(struct json_object_s *object, HYA_BlendNode *node,
                         Context *ctx) {
+  memset(node, 0, sizeof(HYA_BlendNode));  // NOLINT
   Init_HYA_Node(object, &node->node, ctx);
   return;
 }

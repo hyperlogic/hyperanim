@@ -10,23 +10,34 @@
 
 #include "arena.h"
 
-bool ArenaAlloc(Arena **arena, size_t capacity) {
+HYA_Result ArenaInit(Arena *arena, size_t arena_size) {
   assert(arena);
-  Arena *a = (Arena *)malloc(sizeof(Arena));
-  a->base = malloc(capacity);
-  if (!a->base) {
-    free(a);
-    return false;
+  arena->base = malloc(arena_size);
+  if (!arena->base) {
+    return HYA_ERR_OUT_OF_MEMORY;
   }
-  a->offset = 0;
-  a->capacity = capacity;
-  *arena = a;
-  return true;
+  arena->offset = 0;
+  arena->capacity = arena_size;
+  return HYA_OK;
 }
 
-void ArenaFree(Arena *a) {
-  free(a->base);
-  free(a);
+HYA_Result ArenaCreate(Arena **arena, size_t arena_size) {
+  assert(arena);
+  *arena = (Arena *)malloc(sizeof(Arena));
+  if (!*arena) {
+    return HYA_ERR_OUT_OF_MEMORY;
+  }
+  return ArenaInit(*arena, arena_size);
+}
+
+void ArenaDeinit(Arena *arena) {
+  assert(arena);
+  free(arena->base);
+}
+
+void ArenaDestroy(Arena *arena) {
+  ArenaDeinit(arena);
+  free(arena);
 }
 
 // Round n up to a power-of-two alignment.

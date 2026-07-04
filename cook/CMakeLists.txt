@@ -11,6 +11,7 @@ set(CMAKE_C_FLAGS_DEBUG "-g -O0")
 # Build application
 add_executable(${PROJECT_NAME}
   arena.c
+  context.c
   cook.c
   node_handlers.c
 )
