@@ -13,13 +13,14 @@
 #include "json.h"
 
 void Print_HYA_Graph(const HYA_Graph *graph);
-
 void Print_HYA_Node(const HYA_Node *node);
-void Init_HYA_Node(struct json_object_s *object, HYA_Node *node, Context *ctx);
+HYA_Result Init_HYA_Node(struct json_object_s *object, HYA_Node *node,
+                         Context *ctx);
 
-#define X(Type, name, NAME)            \
-  void Print_##Type(const Type *node); \
-  void Init_##Type(struct json_object_s *object, Type *node, Context *ctx);
+#define X(Type, name, NAME)                                        \
+  void Print_##Type(const Type *node);                             \
+  HYA_Result Init_##Type(struct json_object_s *object, Type *node, \
+                         Context *ctx);
 HYA_NODE_TYPE_LIST
 #undef X
 

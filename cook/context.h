@@ -9,6 +9,8 @@ typedef struct StrToIdPair {
   int value;
 } StrToIdPair;
 
+#define CONTEXT_MAX_NUM_NAMES 64
+
 typedef struct Context {
   HYA_Graph *graph;
   StrToIdPair *node_map;
