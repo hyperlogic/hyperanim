@@ -41,6 +41,7 @@ enum {
 };
 
 typedef struct HYA_Var {
+  HYA_STR_ID name;
   HYA_VAR_TYPE type;
   union {
     bool b;
@@ -126,6 +127,10 @@ typedef struct HYA_Graph {
   // use HYA_STR_ID to index into this array
   size_t num_str_ptrs;
   const char **str_ptrs;
+
+  // use HYA_VAR_ID to index into this array
+  size_t num_vars;
+  HYA_Var *vars;
 
 } HYA_Graph;
 

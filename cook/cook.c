@@ -255,6 +255,21 @@ HYA_Result BuildGraph(struct json_value_s *root, HYA_Graph **graph,
   }
   g->str_ptrs = (const char **)str_ptrs;
 
+  // create vars
+  g->num_vars = (size_t)ctx->next_var_id;
+  g->vars =
+      (HYA_Var *)ArenaAllocFrom(ctx->arena, sizeof(HYA_Var) * g->num_vars);
+  memset(g->vars, 0, sizeof(HYA_Var) * g->num_vars);  // NOLINT
+  n = shlen(ctx->var_map);                            // number of pairs
+  for (ptrdiff_t i = 0; i < n; i++) {
+    char *key = ctx->var_map[i].key;
+    size_t value = ctx->var_map[i].value;
+
+    // find name from string table
+    int id = shget(ctx->str_map, key);
+    g->vars[value].name = id;
+  }
+
   *graph = g;
 
   return HYA_OK;
