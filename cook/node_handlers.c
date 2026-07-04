@@ -31,15 +31,14 @@ void Print_HYA_Node(const HYA_Node *node) {
   printf("]\n");
 }
 
-void Init_HYA_Node(struct json_object_s *object, HYA_Node *node,
-                   StrToIdPair *node_map, StrToIdPair *type_map, Arena *arena) {
+void Init_HYA_Node(struct json_object_s *object, HYA_Node *node, Context *ctx) {
   memset(node, 0, sizeof(HYA_Node));  // NOLINT
   struct json_object_element_s *elem = object->start;
   while (elem != NULL) {
     if (0 == strcmp(elem->name->string, "name")) {
       struct json_string_s *s = json_value_as_string(elem->value);
       assert(s);
-      size_t id = shget(node_map, s->string);
+      size_t id = shget(ctx->node_map, s->string);
       if (id == 0) {
         printf("ERROR: unknown node name %s\n", s->string);
         exit(10);
@@ -48,7 +47,7 @@ void Init_HYA_Node(struct json_object_s *object, HYA_Node *node,
     } else if (0 == strcmp(elem->name->string, "type")) {
       struct json_string_s *s = json_value_as_string(elem->value);
       assert(s);
-      size_t id = shget(type_map, s->string);
+      size_t id = shget(ctx->type_map, s->string);
       if (id == 0) {
         printf("ERROR: unknown node type %s\n", s->string);
         exit(11);
@@ -59,13 +58,13 @@ void Init_HYA_Node(struct json_object_s *object, HYA_Node *node,
       assert(a);
       node->num_children = a->length;
       node->children =
-          ArenaAllocFrom(arena, sizeof(HYA_NODE_ID) * node->num_children);
+          ArenaAllocFrom(ctx->arena, sizeof(HYA_NODE_ID) * node->num_children);
       struct json_array_element_s *e = a->start;
       int i = 0;
       while (e != NULL) {
         struct json_string_s *s = json_value_as_string(e->value);
         assert(s);
-        size_t id = shget(node_map, s->string);
+        size_t id = shget(ctx->node_map, s->string);
         if (id == 0) {
           printf("ERROR: unknown node name %s\n", s->string);
           exit(10);
@@ -86,10 +85,39 @@ void Print_HYA_StateMachineNode(const HYA_StateMachineNode *node) {
 }
 
 void Init_HYA_StateMachineNode(struct json_object_s *object,
-                               HYA_StateMachineNode *node,
-                               StrToIdPair *node_map, StrToIdPair *type_map,
-                               Arena *arena) {
-  Init_HYA_Node(object, &node->node, node_map, type_map, arena);
+                               HYA_StateMachineNode *node, Context *ctx) {
+  Init_HYA_Node(object, &node->node, ctx);
+  struct json_object_element_s *element = object->start;
+  while (element != NULL) {
+    if (0 == strcmp(element->name->string, "states")) {
+      struct json_array_s *array = json_value_as_array(element->value);
+      assert(array);
+      struct json_array_element_s *elem = array->start;
+      while (elem != NULL) {
+        struct json_object_s *obj = json_value_as_object(elem->value);
+        struct json_object_element_s *el = obj->start;
+        while (el != NULL) {
+          if (0 == strcmp(el->name->string, "name")) {
+          } else if (0 == strcmp(el->name->string, "interp_time")) {
+          } else if (0 == strcmp(el->name->string, "transltions")) {
+            struct json_array_s *a = json_value_as_array(el->value);
+            struct json_array_element_s *e = a->start;
+            while (e != NULL) {
+              struct json_string_s *s = json_value_as_string(e->value);
+              if (0 == strcmp(s->string, "condition")) {
+              } else if (0 == strcmp(s->string, "dst_state")) {
+              }
+              e = e->next;
+            }
+          }
+          el = el->next;
+        }
+        elem = elem->next;
+      }
+      break;
+    }
+    element = element->next;
+  }
   return;
 }
 
@@ -100,9 +128,8 @@ void Print_HYA_MotionNode(const HYA_MotionNode *node) {
 }
 
 void Init_HYA_MotionNode(struct json_object_s *object, HYA_MotionNode *node,
-                         StrToIdPair *node_map, StrToIdPair *type_map,
-                         Arena *arena) {
-  Init_HYA_Node(object, &node->node, node_map, type_map, arena);
+                         Context *ctx) {
+  Init_HYA_Node(object, &node->node, ctx);
   return;
 }
 
@@ -113,8 +140,7 @@ void Print_HYA_BlendNode(const HYA_BlendNode *node) {
 }
 
 void Init_HYA_BlendNode(struct json_object_s *object, HYA_BlendNode *node,
-                        StrToIdPair *node_map, StrToIdPair *type_map,
-                        Arena *arena) {
-  Init_HYA_Node(object, &node->node, node_map, type_map, arena);
+                        Context *ctx) {
+  Init_HYA_Node(object, &node->node, ctx);
   return;
 }

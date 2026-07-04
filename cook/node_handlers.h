@@ -16,17 +16,21 @@ typedef struct StrToIdPair {
   size_t value;
 } StrToIdPair;
 
+typedef struct Context {
+  HYA_Graph *graph;
+  StrToIdPair *node_map;
+  StrToIdPair *type_map;
+  Arena *arena;
+} Context;
+
 void Print_HYA_Graph(const HYA_Graph *graph);
 
 void Print_HYA_Node(const HYA_Node *node);
-void Init_HYA_Node(struct json_object_s *object, HYA_Node *node,
-                   StrToIdPair *node_map, StrToIdPair *type_map, Arena *arena);
+void Init_HYA_Node(struct json_object_s *object, HYA_Node *node, Context *ctx);
 
-#define X(Type, name, NAME)                                      \
-  void Print_##Type(const Type *node);                           \
-  void Init_##Type(struct json_object_s *object, Type *node,     \
-                   StrToIdPair *node_map, StrToIdPair *type_map, \
-                   Arena *arena);
+#define X(Type, name, NAME)            \
+  void Print_##Type(const Type *node); \
+  void Init_##Type(struct json_object_s *object, Type *node, Context *ctx);
 HYA_NODE_TYPE_LIST
 #undef X
 

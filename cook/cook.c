@@ -92,8 +92,7 @@ double JSON_NumberToDouble(struct json_number_s *n) {
   return d;
 }
 
-void BuildNodes(struct json_array_s *array, HYA_Graph *graph,
-                StrToIdPair **node_map, StrToIdPair *type_map, Arena *arena) {
+void BuildNodes(struct json_array_s *array, HYA_Graph *graph, Context *ctx) {
   // first pass: determine node counts
   struct json_array_element_s *e = array->start;
   while (e != NULL) {
@@ -116,12 +115,12 @@ void BuildNodes(struct json_array_s *array, HYA_Graph *graph,
       if (0 == strcmp(elem->name->string, "name")) {
         struct json_string_s *s = json_value_as_string(elem->value);
         assert(s);
-        size_t id = shget(*node_map, s->string);
+        size_t id = shget(ctx->node_map, s->string);
         if (id != 0) {
           printf("ERROR: duplicate node name %s\n", s->string);
           exit(9);
         }
-        shput(*node_map, s->string, g_next_node_id++);
+        shput(ctx->node_map, s->string, g_next_node_id++);
       }
       elem = elem->next;
     }
@@ -130,11 +129,11 @@ void BuildNodes(struct json_array_s *array, HYA_Graph *graph,
 
   // now allocate nodes arrays, and set counts back to zero,
   // for second pass
-#define X(Type, name, NAME)                               \
-  if (graph->num_##name##_nodes > 0) {                    \
-    graph->name##_nodes = (Type *)ArenaAllocFrom(         \
-        arena, sizeof(Type) * graph->num_##name##_nodes); \
-    graph->num_##name##_nodes = 0;                        \
+#define X(Type, name, NAME)                                    \
+  if (graph->num_##name##_nodes > 0) {                         \
+    graph->name##_nodes = (Type *)ArenaAllocFrom(              \
+        ctx->arena, sizeof(Type) * graph->num_##name##_nodes); \
+    graph->num_##name##_nodes = 0;                             \
   }
   HYA_NODE_TYPE_LIST
 #undef X
@@ -152,7 +151,7 @@ void BuildNodes(struct json_array_s *array, HYA_Graph *graph,
 #define X(Type, name, NAME)                                                \
   if (0 == strcmp(s->string, #name)) {                                     \
     Init_##Type(object, &graph->name##_nodes[graph->num_##name##_nodes++], \
-                *node_map, type_map, arena);                               \
+                ctx);                                                      \
   }
         HYA_NODE_TYPE_LIST
 #undef X
@@ -163,9 +162,8 @@ void BuildNodes(struct json_array_s *array, HYA_Graph *graph,
   }
 }
 
-bool BuildGraph(struct json_value_s *root, HYA_Graph **graph,
-                StrToIdPair **node_map, StrToIdPair *type_map, Arena *arena) {
-  HYA_Graph *g = (HYA_Graph *)ArenaAllocFrom(arena, sizeof(HYA_Graph));
+bool BuildGraph(struct json_value_s *root, HYA_Graph **graph, Context *ctx) {
+  HYA_Graph *g = (HYA_Graph *)ArenaAllocFrom(ctx->arena, sizeof(HYA_Graph));
   memset(g, 0, sizeof(HYA_Graph));  // NOLINT
 
   struct json_object_s *object = (struct json_object_s *)root->payload;
@@ -182,13 +180,13 @@ bool BuildGraph(struct json_value_s *root, HYA_Graph **graph,
     } else if (0 == strcmp(elem->name->string, "nodes")) {
       struct json_array_s *array = json_value_as_array(elem->value);
       assert(array);
-      BuildNodes(array, g, node_map, type_map, arena);
+      BuildNodes(array, g, ctx);
     } else {
       printf("WARNING: Unknown key %s, skipping\n", elem->name->string);
     }
     elem = elem->next;
   }
-  g->root = shget(*node_map, root_name);
+  g->root = shget(ctx->node_map, root_name);
   if (g->root == 0) {
     printf("ERROR: could not find root node %s\n", root_name);
     return false;
@@ -224,39 +222,35 @@ int main(int argc, const char *argv[]) {
     return 4;
   }
 
-  Arena *arena;
+  Context ctx = {0};
   const size_t ARENA_SIZE = (size_t)10 * 1024 * 1024;
-  if (!ArenaAlloc(&arena, ARENA_SIZE)) {
+  if (!ArenaAlloc(&ctx.arena, ARENA_SIZE)) {
     free(root);
     printf("ERROR allocating arena\n");
     return 5;
   }
 
-  StrToIdPair *type_map = NULL;
-  sh_new_arena(type_map);
-#define X(Type, name, NAME) shput(type_map, #name, HYA_NODE_TYPE_##NAME + 1);
+#define X(Type, name, NAME) \
+  shput(ctx.type_map, #name, HYA_NODE_TYPE_##NAME + 1);
   HYA_NODE_TYPE_LIST
 #undef X
 
-  StrToIdPair *node_map = NULL;
-  sh_new_arena(node_map);
-
   HYA_Graph *graph;
-  if (!BuildGraph(root, &graph, &node_map, type_map, arena)) {
-    shfree(node_map);
-    shfree(type_map);
-    ArenaFree(arena);
+  if (!BuildGraph(root, &graph, &ctx)) {
+    shfree(ctx.node_map);
+    shfree(ctx.type_map);
+    ArenaFree(ctx.arena);
     free(root);
 
     printf("ERROR: BuildGraph failed\n");
     return 6;
   }
 
-  printf("graph using %zu bytes\n", arena->offset);
+  printf("graph using %zu bytes\n", ctx.arena->offset);
   Print_HYA_Graph(graph);
 
-  shfree(node_map);
-  shfree(type_map);
-  ArenaFree(arena);
+  shfree(ctx.node_map);
+  shfree(ctx.type_map);
+  ArenaFree(ctx.arena);
   free(root);
 }
