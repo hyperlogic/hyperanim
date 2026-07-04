@@ -202,9 +202,15 @@ int main(int argc, const char *argv[]) {
     return 2;
   }
 
-  struct json_value_s *root = json_parse((const void *)buf, buf_size);
+  struct json_parse_result_s parse_result;
+  struct json_value_s *root =
+      json_parse_ex((const void *)buf, buf_size, json_parse_flags_default, NULL,
+                    NULL, &parse_result);
   if (!root) {
     printf("ERROR: parsing %s\n", argv[1]);
+    printf("JSON parse error %zu at line %zu, column %zu (byte offset %zu)\n",
+           parse_result.error, parse_result.error_line_no,
+           parse_result.error_row_no, parse_result.error_offset);
     return 3;
   }
 
