@@ -13,6 +13,7 @@ add_executable(${PROJECT_NAME}
   arena.c
   context.c
   cook.c
+  loader.c
   node_handlers.c
 )
 

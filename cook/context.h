@@ -10,8 +10,10 @@ typedef struct StrToIdPair {
 } StrToIdPair;
 
 #define CONTEXT_MAX_NUM_NAMES 64
+#define CONTEXT_PATH_SIZE 1024
 
 typedef struct Context {
+  const char path[CONTEXT_PATH_SIZE];
   HYA_Graph *graph;
   StrToIdPair *node_map;
   int next_node_id;
@@ -23,8 +25,8 @@ typedef struct Context {
   Arena *arena;
 } Context;
 
-HYA_Result ContextInit(Context *ctx, size_t arena_size);
-HYA_Result ContextCreate(Context **ctx, size_t arena_size);
+HYA_Result ContextInit(Context *ctx, size_t arena_size, const char* filename);
+HYA_Result ContextCreate(Context **ctx, size_t arena_size, const char* filename);
 void ContextDeinit(Context *ctx);
 void ContextDestroy(Context *ctx);
 

@@ -98,7 +98,7 @@ typedef struct HYA_BlendNode {
   HYA_VAR_ID alpha_var;
 } HYA_BlendNode;
 
-// X(TypeName, field_prefix)
+// X(HYA_NodeType, snake_case_name, SCREAMING_SNAKE_CASE_NAME)
 #define HYA_NODE_TYPE_LIST                              \
   X(HYA_StateMachineNode, state_machine, STATE_MACHINE) \
   X(HYA_MotionNode, motion, MOTION)                     \
@@ -109,6 +109,15 @@ enum {
   HYA_NODE_TYPE_LIST
 #undef X
 };
+
+typedef struct HYA_Skeleton {
+  HYA_STR_ID name;
+  HYA_STR_ID *joint_names;
+  int *parent_indices;
+  HYA_Vec3 *translations;
+  HYA_Vec3 *rotations;
+  size_t num_joints;
+} HYA_Skeleton;
 
 typedef struct HYA_Graph {
   size_t version;
@@ -131,6 +140,8 @@ typedef struct HYA_Graph {
   // use HYA_VAR_ID to index into this array
   size_t num_vars;
   HYA_Var *vars;
+
+  HYA_Skeleton tpose;
 
 } HYA_Graph;
 

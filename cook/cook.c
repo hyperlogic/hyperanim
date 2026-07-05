@@ -5,11 +5,13 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "arena.h"
 #include "hyperanim.h"
 #include "json.h"
 #include "node_handlers.h"
+#include "loader.h"
 
 #define STB_DS_IMPLEMENTATION
 #include "stb_ds.h"
@@ -174,6 +176,7 @@ HYA_Result BuildNodes(struct json_array_s *array, HYA_Graph *graph,
 
 HYA_Result BuildGraph(struct json_value_s *root, HYA_Graph **graph,
                       Context *ctx) {
+  HYA_Result res;
   HYA_Graph *g = (HYA_Graph *)ArenaAllocFrom(ctx->arena, sizeof(HYA_Graph));
   memset(g, 0, sizeof(HYA_Graph));  // NOLINT
 
@@ -182,18 +185,41 @@ HYA_Result BuildGraph(struct json_value_s *root, HYA_Graph **graph,
   const char *root_name = NULL;
   while (elem != NULL) {
     if (0 == strcmp(elem->name->string, "version")) {
-      long v = JSON_NumberToLong(json_value_as_number(elem->value));
+      struct json_number_s *n = json_value_as_number(elem->value);
+      if (!n) {
+        printf("ERROR: BuildGraph version value is not a number\n");
+        return HYA_ERR_FAILURE;
+      }
+      long v = JSON_NumberToLong(n);
       g->version = v;
     } else if (0 == strcmp(elem->name->string, "root")) {
       struct json_string_s *s = json_value_as_string(elem->value);
-      assert(s);
+      if (!s) {
+        printf("ERROR: BuildGraph root value is not a string\n");
+        return HYA_ERR_FAILURE;
+      }
       root_name = s->string;
     } else if (0 == strcmp(elem->name->string, "nodes")) {
       struct json_array_s *array = json_value_as_array(elem->value);
-      assert(array);
-      HYA_Result res = BuildNodes(array, g, ctx);
+      if (!array) {
+        printf("ERROR: BuildGraph nodes value is not an array\n");
+        return HYA_ERR_FAILURE;
+      }
+      res = BuildNodes(array, g, ctx);
       if (res != HYA_OK) {
         printf("ERROR: BuildGraph: BuildNodes failed: %d\n", res);
+        return res;
+      }
+    } else if (0 == strcmp(elem->name->string, "tpose")) {
+      struct json_string_s *s = json_value_as_string(elem->value);
+      if (!s) {
+        printf("ERROR: BuildGraph root value is not a string\n");
+        return HYA_ERR_FAILURE;
+      }
+      // load the tpose
+      res = InitSkeletonFromGLTF(s->string, &g->tpose, ctx);
+      if (res != HYA_OK) {
+        printf("ERROR: BuildGraph InitSkeletonFromGLTF failed: %d\n", res);
         return res;
       }
     } else {
@@ -309,7 +335,7 @@ int main(int argc, const char *argv[]) {
 
   Context ctx;
   const size_t ARENA_SIZE = (size_t)10 * 1024 * 1024;
-  HYA_Result res = ContextInit(&ctx, ARENA_SIZE);
+  HYA_Result res = ContextInit(&ctx, ARENA_SIZE, argv[1]);
   if (res != HYA_OK) {
     free(root);
     printf("ERROR: ContextInit failed: %d\n", res);
