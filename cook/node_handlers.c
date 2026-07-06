@@ -198,7 +198,7 @@ static HYA_Result Init_HYA_State(struct json_object_s *object, HYA_State *state,
         printf(
             "ERROR: Init_HYA_State could not find state name %s in state_map\n",
             s->string);
-        exit(13);
+        return HYA_ERR_FAILURE;
       }
       state->state_idx = id;
       state->name = ContextAddString(ctx, s->string);
