@@ -115,7 +115,7 @@ typedef struct HYA_Skeleton {
   HYA_STR_ID *joint_names;
   int *parent_indices;
   HYA_Vec3 *translations;
-  HYA_Vec3 *rotations;
+  HYA_Quat *rotations;
   size_t num_joints;
 } HYA_Skeleton;
 

@@ -92,6 +92,8 @@ HYA_Result BuildNodes(struct json_array_s *array, HYA_Graph *graph,
       return HYA_ERR_FAILURE;
     }
     struct json_object_element_s *elem = object->start;
+    bool found_name = false;
+    bool found_type = false;
     while (elem != NULL) {
       if (0 == strcmp(elem->name->string, "type")) {
         struct json_string_s *s = json_value_as_string(elem->value);
@@ -108,6 +110,11 @@ HYA_Result BuildNodes(struct json_array_s *array, HYA_Graph *graph,
         }
         HYA_NODE_TYPE_LIST
 #undef X
+        else {
+          printf("ERROR: unknown node type %s\n", s->string);
+          return HYA_ERR_FAILURE;
+        }
+        found_type = true;
       }
       if (0 == strcmp(elem->name->string, "name")) {
         struct json_string_s *s = json_value_as_string(elem->value);
@@ -121,23 +128,32 @@ HYA_Result BuildNodes(struct json_array_s *array, HYA_Graph *graph,
           return HYA_ERR_FAILURE;
         }
         shput(ctx->node_map, s->string, ctx->next_node_id++);
+        found_name = true;
       }
       elem = elem->next;
+    }
+    if (!found_name) {
+      printf("ERROR: missing name\n");
+      return HYA_ERR_FAILURE;
+    }
+    if (!found_type) {
+      printf("ERROR: missing type\n");
+      return HYA_ERR_FAILURE;
     }
     e = e->next;
   }
 
   // now allocate nodes arrays, and set counts back to zero,
   // for second pass
-#define X(Type, name, NAME)                                       \
-  if (graph->num_##name##_nodes > 0) {                            \
-    graph->name##_nodes = (Type *)ArenaAllocFrom(                 \
-        ctx->arena, sizeof(Type) * graph->num_##name##_nodes);    \
-    if (!graph->name##_nodes) {                                   \
-      printf("ERROR: BuildNodes name##_nodes allocate failed\n"); \
-      return HYA_ERR_OUT_OF_MEMORY;                               \
-    }                                                             \
-    graph->num_##name##_nodes = 0;                                \
+#define X(Type, name, NAME)                                             \
+  if (graph->num_##name##_nodes > 0) {                                  \
+    graph->name##_nodes = (Type *)ArenaAllocFrom(                       \
+        ctx->arena, sizeof(Type) * graph->num_##name##_nodes);          \
+    if (!graph->name##_nodes) {                                         \
+      printf("ERROR: BuildNodes %s allocate failed\n", #name "_nodes"); \
+      return HYA_ERR_OUT_OF_MEMORY;                                     \
+    }                                                                   \
+    graph->num_##name##_nodes = 0;                                      \
   }
   HYA_NODE_TYPE_LIST
 #undef X
@@ -177,6 +193,7 @@ HYA_Result BuildNodes(struct json_array_s *array, HYA_Graph *graph,
 HYA_Result BuildGraph(struct json_value_s *root, HYA_Graph **graph,
                       Context *ctx) {
   HYA_Result res;
+  assert(ctx->arena->offset == 0);  // graph must be the first allocation
   HYA_Graph *g = (HYA_Graph *)ArenaAllocFrom(ctx->arena, sizeof(HYA_Graph));
   memset(g, 0, sizeof(HYA_Graph));  // NOLINT
 
@@ -272,6 +289,10 @@ HYA_Result BuildGraph(struct json_value_s *root, HYA_Graph **graph,
     // copy key from map into ctx->arena
     size_t len = strlen(key);  // NOLINT
     char *arena_str = (char *)ArenaAllocFrom(ctx->arena, len + 1);
+    if (!arena_str) {
+      printf("failure allocating string of %zu bytes\n", len + 1);
+      return HYA_ERR_OUT_OF_MEMORY;
+    }
     strcpy(arena_str, key);  // NOLINT
     arena_str[len] = 0;
 
@@ -285,6 +306,10 @@ HYA_Result BuildGraph(struct json_value_s *root, HYA_Graph **graph,
   g->num_vars = (size_t)ctx->next_var_id;
   g->vars =
       (HYA_Var *)ArenaAllocFrom(ctx->arena, sizeof(HYA_Var) * g->num_vars);
+  if (!g->vars) {
+    printf("failure allocating %zu HYA_Var*\n", g->num_vars);
+    return HYA_ERR_OUT_OF_MEMORY;
+  }
   memset(g->vars, 0, sizeof(HYA_Var) * g->num_vars);  // NOLINT
   n = shlen(ctx->var_map);                            // number of pairs
   for (ptrdiff_t i = 0; i < n; i++) {
@@ -309,7 +334,7 @@ int main(int argc, const char *argv[]) {
   }
 
   size_t buf_size = 0;
-  const char *buf = ReadFile(argv[1], &buf_size);
+  char *buf = ReadFile(argv[1], &buf_size);
   if (!buf) {
     printf("ERROR: loading %s\n", argv[1]);
     return 1;
@@ -319,6 +344,7 @@ int main(int argc, const char *argv[]) {
   struct json_value_s *root =
       json_parse_ex((const void *)buf, buf_size, json_parse_flags_default, NULL,
                     NULL, &parse_result);
+  free(buf);
   if (!root) {
     printf("ERROR: parsing %s\n", argv[1]);
     printf("JSON parse error %zu at line %zu, column %zu (byte offset %zu)\n",
@@ -347,6 +373,9 @@ int main(int argc, const char *argv[]) {
 #undef X
 
   HYA_Graph *graph = NULL;
+  // NOTE: the strings in the ctx stb_ds maps
+  // point directly to data from the json root json_value_s
+  // so the ctx shouldn't outlive the root.
   res = BuildGraph(root, &graph, &ctx);
   if (res != HYA_OK) {
     printf("ERROR: BuildGraph failed: %d\n", res);

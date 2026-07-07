@@ -13,7 +13,7 @@ typedef struct StrToIdPair {
 #define CONTEXT_PATH_SIZE 1024
 
 typedef struct Context {
-  const char path[CONTEXT_PATH_SIZE];
+  char path[CONTEXT_PATH_SIZE];
   HYA_Graph *graph;
   StrToIdPair *node_map;
   int next_node_id;

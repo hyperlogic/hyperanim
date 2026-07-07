@@ -277,6 +277,10 @@ HYA_Result Init_HYA_StateMachineNode(struct json_object_s *object,
       int i = 0;
       while (elem != NULL) {
         struct json_object_s *obj = json_value_as_object(elem->value);
+        if (!obj) {
+          printf("ERROR: Init_HYA_StateMachineNode state is not an object\n");
+          return HYA_ERR_FAILURE;
+        }
         struct json_object_element_s *e = obj->start;
         while (e != NULL) {
           if (0 == strcmp(e->name->string, "name")) {

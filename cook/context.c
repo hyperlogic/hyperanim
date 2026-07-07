@@ -44,8 +44,9 @@ HYA_Result ContextInit(Context *ctx, size_t arena_size, const char* filename) {
     printf("ERROR ArenaCreate failure %d\n", res);
     return res;
   }
-  if (!dirname(filename, (char *)ctx->path, CONTEXT_PATH_SIZE)) {
+  if (!dirname(filename, ctx->path, CONTEXT_PATH_SIZE)) {
     printf("ERROR: path too long\n");
+    ContextDeinit(ctx);
     return HYA_ERR_FAILURE;
   }
   return HYA_OK;

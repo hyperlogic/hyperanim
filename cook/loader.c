@@ -47,5 +47,5 @@ HYA_Result InitSkeletonFromGLTF(const char *filename, HYA_Skeleton *skeleton,
 
 HYA_Result InitMotionFromGLTF(const char *filename, HYA_MotionNode *motion,
                               Context *ctx) {
-  assert(0);  // not implemented
+  return HYA_ERR_FAILURE;  // not implemented
 }
