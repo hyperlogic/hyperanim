@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
-set(PROJECT_NAME cook)
+set(PROJECT_NAME play)
 project(${PROJECT_NAME} LANGUAGES C)
 set(CMAKE_C_STANDARD 11)
 
@@ -10,11 +10,11 @@ set(CMAKE_C_FLAGS_DEBUG "-g -O0")
 
 # Build application
 add_executable(${PROJECT_NAME}
-  arena.c
-  context.c
-  cook.c
-  loader.c
-  node_handlers.c
+  ../src/arena.c
+  ../src/context.c
+  ../src/loadjson.c
+  ../src/gltf.c
+  play.c
 )
 
-target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/..)
+target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../src ${CMAKE_CURRENT_SOURCE_DIR}/../vendor)

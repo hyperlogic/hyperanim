@@ -10,17 +10,17 @@
 #include "arena.h"
 #include "hyperanim.h"
 #include "json.h"
-#include "node_handlers.h"
-#include "loader.h"
+#include "loadjson.h"
+#include "gltf.h"
 
 #define STB_DS_IMPLEMENTATION
 #include "stb_ds.h"
 
 void PrintUsage() {
-  printf("cook\n");
+  printf("play\n");
   printf("\n");
   printf("USAGE:\n");
-  printf("  cook file.json\n");
+  printf("  play graph.json\n");
 }
 
 char *ReadFile(const char *filename, size_t *out_size) {

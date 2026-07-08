@@ -3,7 +3,7 @@
   This software is licensed under the MIT License. See LICENSE for more
   details.
 */
-#include "loader.h"
+#include "gltf.h"
 
 #include <assert.h>
 #include <stdio.h>

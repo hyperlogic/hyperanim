@@ -4,8 +4,8 @@
   details.
 */
 
-#ifndef LOADER_H
-#define LOADER_H
+#ifndef GLTF_H
+#define GLTF_H
 
 #include "context.h"
 #include "hyperanim.h"
@@ -15,4 +15,4 @@ HYA_Result InitSkeletonFromGLTF(const char *filename, HYA_Skeleton *skeleton,
 HYA_Result InitMotionFromGLTF(const char *filename, HYA_MotionNode *motion,
                               Context *ctx);
 
-#endif  // #define LOADER_H
+#endif  // #define GLTF_H

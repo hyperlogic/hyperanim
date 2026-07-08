@@ -4,8 +4,8 @@
   details.
 */
 
-#ifndef NODES_H
-#define NODES_H
+#ifndef LOADJSON_H
+#define LOADJSON_H
 
 #include "arena.h"
 #include "context.h"
@@ -24,4 +24,4 @@ HYA_Result Init_HYA_Node(struct json_object_s *object, HYA_Node *node,
 HYA_NODE_TYPE_LIST
 #undef X
 
-#endif  // #define NODES_H
+#endif  // #define LOADJSON_H
