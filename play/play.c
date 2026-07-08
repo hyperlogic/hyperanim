@@ -10,7 +10,6 @@
 #include "hyperanim.h"
 #include "json.h"
 #include "loadjson.h"
-#include "gltf.h"
 
 #define STB_DS_IMPLEMENTATION
 #include "stb_ds.h"

@@ -13,7 +13,7 @@ add_executable(${PROJECT_NAME}
   ../src/arena.c
   ../src/context.c
   ../src/loadjson.c
-  ../src/gltf.c
+  ../src/loadgltf.c
   play.c
 )
 

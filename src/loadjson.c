@@ -4,7 +4,7 @@
 #include <errno.h>
 #include <stdio.h>
 
-#include "gltf.h"
+#include "loadgltf.h"
 #include "stb_ds.h"
 
 static long JSON_NumberToLong(struct json_number_s *n) {
