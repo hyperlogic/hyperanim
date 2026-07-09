@@ -25,11 +25,12 @@ typedef struct Context {
   Arena *arena;
 } Context;
 
-HYA_Result ContextInit(Context *ctx, size_t arena_size, const char* filename);
-HYA_Result ContextCreate(Context **ctx, size_t arena_size, const char* filename);
+HYA_Result ContextInit(Context *ctx, size_t arena_size, const char *filename);
+HYA_Result ContextCreate(Context **ctx, size_t arena_size,
+                         const char *filename);
 void ContextDeinit(Context *ctx);
 void ContextDestroy(Context *ctx);
 
-HYA_STR_ID ContextAddString(Context *ctx, const char* str);
+HYA_STR_ID ContextAddString(Context *ctx, const char *str);
 
 #endif  // CONTEXT_H

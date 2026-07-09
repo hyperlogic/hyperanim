@@ -25,7 +25,7 @@ static bool dirname(const char *path, char *out, size_t out_size) {
   }
 
   size_t len = (size_t)(slash - path);
-  if (len == 0) len = 1;              /* "/graph.json" -> "/" not "" */
+  if (len == 0) len = 1; /* "/graph.json" -> "/" not "" */
   if (len + 1 > out_size) return false;
 
   memcpy(out, path, len);
@@ -33,7 +33,7 @@ static bool dirname(const char *path, char *out, size_t out_size) {
   return true;
 }
 
-HYA_Result ContextInit(Context *ctx, size_t arena_size, const char* filename) {
+HYA_Result ContextInit(Context *ctx, size_t arena_size, const char *filename) {
   memset(ctx, 0, sizeof(Context));
   shdefault(ctx->node_map, -1);
   shdefault(ctx->type_map, -1);
@@ -52,7 +52,8 @@ HYA_Result ContextInit(Context *ctx, size_t arena_size, const char* filename) {
   return HYA_OK;
 }
 
-HYA_Result ContextCreate(Context **ctx, size_t arena_size, const char* filename) {
+HYA_Result ContextCreate(Context **ctx, size_t arena_size,
+                         const char *filename) {
   *ctx = (Context *)malloc(sizeof(Context));
   if (!*ctx) {
     return HYA_ERR_OUT_OF_MEMORY;
@@ -73,7 +74,7 @@ void ContextDestroy(Context *ctx) {
   free(ctx);
 }
 
-HYA_STR_ID ContextAddString(Context *ctx, const char* str) {
+HYA_STR_ID ContextAddString(Context *ctx, const char *str) {
   int str_id = shget(ctx->str_map, str);
   if (str_id < 0) {
     str_id = ctx->next_str_id++;
