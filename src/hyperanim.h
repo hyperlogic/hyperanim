@@ -18,6 +18,7 @@ typedef enum HYA_Result {
   HYA_OK = 0,  // success is always zero
   HYA_ERR_FAILURE,
   HYA_ERR_OUT_OF_MEMORY,
+  HYA_ERR_JSON_SCHEMA,
   HYA_ERR_INVALID_ARG,
   HYA_ERR_NOT_FOUND,
 } HYA_Result;
