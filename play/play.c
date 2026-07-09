@@ -108,18 +108,10 @@ int main(int argc, const char *argv[]) {
   graph = (HYA_Graph *)ArenaAllocFrom(ctx.arena, sizeof(HYA_Graph));
   memset(graph, 0, sizeof(HYA_Graph));  // NOLINT
 
-  struct json_object_s *object = (struct json_object_s *)root->payload;
-  if (!object) {
-    ContextDeinit(&ctx);
-    free(root);
-    printf("ERROR: expected root to be a json object\n");
-    return 1;
-  }
-
   // NOTE: the strings in the ctx stb_ds maps
   // point directly to data from the json root json_value_s
   // so the ctx shouldn't outlive the root.
-  res = Init_HYA_Graph(graph, &ctx, object);
+  res = Init_HYA_Graph(graph, &ctx, root);
   if (res != HYA_OK) {
     printf("ERROR: BuildGraph failed: %d\n", res);
     if (res == HYA_ERR_OUT_OF_MEMORY) {

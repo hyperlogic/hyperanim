@@ -7,6 +7,30 @@
 #include "loadgltf.h"
 #include "stb_ds.h"
 
+#define JSON_ARR_FOR_EACH(v, a, e)                                \
+  struct json_array_s *a = json_value_as_array(v);                \
+  if (!a) {                                                       \
+    printf("ERROR: %s value is not an array\n", __func__);        \
+    return HYA_ERR_FAILURE;                                       \
+  }                                                               \
+  for (struct json_array_element_s *e = a->start; e; e = e->next)
+
+#define JSON_OBJ_FOR_EACH(v, o, e)                                 \
+  struct json_object_s *o = json_value_as_object(v);               \
+  if (!o) {                                                        \
+    printf("ERROR: %s value is not an object\n", __func__);        \
+    return HYA_ERR_FAILURE;                                        \
+  }                                                                \
+  for (struct json_object_element_s *e = o->start; e; e = e->next) \
+
+#define JSON_GET_STRING_FROM_OBJ_ELEM(s, oe)                            \
+  struct json_string_s *s = json_value_as_string(oe->value);            \
+  if (!s) {                                                             \
+    printf("ERROR: %s object key \"%s\" is not a string\n", __func__,   \
+           oe->name->string);                                           \
+    return HYA_ERR_FAILURE;                                             \
+  }
+
 static long JSON_NumberToLong(struct json_number_s *n) {
   char *end;
   errno = 0;
@@ -66,31 +90,21 @@ void Print_HYA_Node(const HYA_Node *node, const HYA_Graph *graph) {
   printf("]\n");
 }
 
-static HYA_Result BuildNodes(struct json_array_s *array, HYA_Graph *graph,
+static HYA_Result BuildNodes(struct json_value_s *value, HYA_Graph *graph,
                       Context *ctx) {
   HYA_Result res;
+
   // first pass: determine node counts
-  struct json_array_element_s *e = array->start;
-  while (e != NULL) {
-    struct json_object_s *object = json_value_as_object(e->value);
-    if (!object) {
-      printf("ERROR: BuildNodes node is not an object\n");
-      return HYA_ERR_FAILURE;
-    }
-    struct json_object_element_s *elem = object->start;
+  JSON_ARR_FOR_EACH(value, array, arr_elem) {
     bool found_name = false;
     bool found_type = false;
-    while (elem != NULL) {
-      if (0 == strcmp(elem->name->string, "type")) {
-        struct json_string_s *s = json_value_as_string(elem->value);
-        if (!s) {
-          printf("ERROR: BuildNodes type value is not a string\n");
-          return HYA_ERR_FAILURE;
-        }
+    JSON_OBJ_FOR_EACH(arr_elem->value, object, obj_elem) {
+      if (0 == strcmp(obj_elem->name->string, "type")) {
+        JSON_GET_STRING_FROM_OBJ_ELEM(s, obj_elem);
 
-#define X(Type, name, NAME)                 \
-  else if (0 == strcmp(s->string, #name)) { \
-    graph->num_##name##_nodes++;            \
+#define X(Type, name, NAME)                   \
+  else if (0 == strcmp(s->string, #name)) {   \
+    graph->num_##name##_nodes++;              \
   }
         if (0) {
         }
@@ -102,12 +116,8 @@ static HYA_Result BuildNodes(struct json_array_s *array, HYA_Graph *graph,
         }
         found_type = true;
       }
-      if (0 == strcmp(elem->name->string, "name")) {
-        struct json_string_s *s = json_value_as_string(elem->value);
-        if (!s) {
-          printf("ERROR: BuildNodes name value is not a string\n");
-          return HYA_ERR_FAILURE;
-        }
+      if (0 == strcmp(obj_elem->name->string, "name")) {
+        JSON_GET_STRING_FROM_OBJ_ELEM(s, obj_elem);
         int id = shget(ctx->node_map, s->string);
         if (id >= 0) {
           printf("ERROR: BuildNodes duplicate node name %s\n", s->string);
@@ -116,7 +126,6 @@ static HYA_Result BuildNodes(struct json_array_s *array, HYA_Graph *graph,
         shput(ctx->node_map, s->string, ctx->next_node_id++);
         found_name = true;
       }
-      elem = elem->next;
     }
     if (!found_name) {
       printf("ERROR: missing name\n");
@@ -126,7 +135,6 @@ static HYA_Result BuildNodes(struct json_array_s *array, HYA_Graph *graph,
       printf("ERROR: missing type\n");
       return HYA_ERR_FAILURE;
     }
-    e = e->next;
   }
 
   // now allocate nodes arrays, and set counts back to zero,
@@ -145,22 +153,15 @@ static HYA_Result BuildNodes(struct json_array_s *array, HYA_Graph *graph,
 #undef X
 
   // second pass: init each node
-  e = array->start;
-  while (e != NULL) {
-    struct json_object_s *object = json_value_as_object(e->value);
-    struct json_object_element_s *elem = object->start;
-    while (elem != NULL) {
-      if (0 == strcmp(elem->name->string, "type")) {
-        struct json_string_s *s = json_value_as_string(elem->value);
-        if (!s) {
-          printf("ERROR: BuildNodes type value is not a string\n");
-          return HYA_ERR_FAILURE;
-        }
+  JSON_ARR_FOR_EACH(value, array2, arr_elem2) {
+    JSON_OBJ_FOR_EACH(arr_elem2->value, object, obj_elem) {
+      if (0 == strcmp(obj_elem->name->string, "type")) {
+        JSON_GET_STRING_FROM_OBJ_ELEM(s, obj_elem);
 
 #define X(Type, name, NAME)                                                    \
   if (0 == strcmp(s->string, #name)) {                                         \
     res = Init_##Type(&graph->name##_nodes[graph->num_##name##_nodes++], ctx,  \
-                      object);                                                 \
+                      arr_elem2->value);                                       \
     if (res != HYA_OK) {                                                       \
       printf("ERROR: BuildNodes Init_##Type failed: %d\n", res);               \
       return res;                                                              \
@@ -169,51 +170,36 @@ static HYA_Result BuildNodes(struct json_array_s *array, HYA_Graph *graph,
         HYA_NODE_TYPE_LIST
 #undef X
       }
-      elem = elem->next;
     }
-    e = e->next;
   }
   return HYA_OK;
 }
 
 HYA_Result Init_HYA_Graph(HYA_Graph *graph, Context *ctx,
-                          struct json_object_s *object) {
+                          struct json_value_s *value) {
   HYA_Result res;
-  struct json_object_element_s *elem = object->start;
+
   const char *root_name = NULL;
-  while (elem != NULL) {
-    if (0 == strcmp(elem->name->string, "version")) {
-      struct json_number_s *n = json_value_as_number(elem->value);
+  JSON_OBJ_FOR_EACH(value, object, obj_elem) {
+    if (0 == strcmp(obj_elem->name->string, "version")) {
+      struct json_number_s *n = json_value_as_number(obj_elem->value);
       if (!n) {
         printf("ERROR: BuildGraph version value is not a number\n");
         return HYA_ERR_FAILURE;
       }
       long v = JSON_NumberToLong(n);
       graph->version = v;
-    } else if (0 == strcmp(elem->name->string, "root")) {
-      struct json_string_s *s = json_value_as_string(elem->value);
-      if (!s) {
-        printf("ERROR: BuildGraph root value is not a string\n");
-        return HYA_ERR_FAILURE;
-      }
+    } else if (0 == strcmp(obj_elem->name->string, "root")) {
+      JSON_GET_STRING_FROM_OBJ_ELEM(s, obj_elem);
       root_name = s->string;
-    } else if (0 == strcmp(elem->name->string, "nodes")) {
-      struct json_array_s *array = json_value_as_array(elem->value);
-      if (!array) {
-        printf("ERROR: BuildGraph nodes value is not an array\n");
-        return HYA_ERR_FAILURE;
-      }
-      res = BuildNodes(array, graph, ctx);
+    } else if (0 == strcmp(obj_elem->name->string, "nodes")) {
+      res = BuildNodes(obj_elem->value, graph, ctx);
       if (res != HYA_OK) {
         printf("ERROR: BuildGraph: BuildNodes failed: %d\n", res);
         return res;
       }
-    } else if (0 == strcmp(elem->name->string, "tpose")) {
-      struct json_string_s *s = json_value_as_string(elem->value);
-      if (!s) {
-        printf("ERROR: BuildGraph root value is not a string\n");
-        return HYA_ERR_FAILURE;
-      }
+    } else if (0 == strcmp(obj_elem->name->string, "tpose")) {
+      JSON_GET_STRING_FROM_OBJ_ELEM(s, obj_elem);
       // load the tpose
       res = InitSkeletonFromGLTF(s->string, &graph->tpose, ctx);
       if (res != HYA_OK) {
@@ -222,9 +208,8 @@ HYA_Result Init_HYA_Graph(HYA_Graph *graph, Context *ctx,
       }
     } else {
       printf("WARNING: BuildGraph: Unknown key %s, skipping\n",
-             elem->name->string);
+             obj_elem->name->string);
     }
-    elem = elem->next;
   }
   if (!root_name) {
     printf("ERROR: BuildGraph: could not no root_node\n");
@@ -306,15 +291,10 @@ HYA_Result Init_HYA_Graph(HYA_Graph *graph, Context *ctx,
 }
 
 HYA_Result Init_HYA_Node(HYA_Node *node, Context *ctx,
-                         struct json_object_s *object) {
-  struct json_object_element_s *elem = object->start;
-  while (elem != NULL) {
-    if (0 == strcmp(elem->name->string, "name")) {
-      struct json_string_s *s = json_value_as_string(elem->value);
-      if (!s) {
-        printf("ERROR: Init_HYA_Node name value is not a string\n");
-        return HYA_ERR_FAILURE;
-      }
+                         struct json_value_s *value) {
+  JSON_OBJ_FOR_EACH(value, object, obj_elem) {
+    if (0 == strcmp(obj_elem->name->string, "name")) {
+      JSON_GET_STRING_FROM_OBJ_ELEM(s, obj_elem);
       int id = shget(ctx->node_map, s->string);
       if (id < 0) {
         printf("ERROR: unknown node name %s\n", s->string);
@@ -322,20 +302,16 @@ HYA_Result Init_HYA_Node(HYA_Node *node, Context *ctx,
       }
       node->id = id;
       node->name = ContextAddString(ctx, s->string);
-    } else if (0 == strcmp(elem->name->string, "type")) {
-      struct json_string_s *s = json_value_as_string(elem->value);
-      if (!s) {
-        printf("ERROR: Init_HYA_Node type value is not a string\n");
-        return HYA_ERR_FAILURE;
-      }
+    } else if (0 == strcmp(obj_elem->name->string, "type")) {
+      JSON_GET_STRING_FROM_OBJ_ELEM(s, obj_elem);
       int id = shget(ctx->type_map, s->string);
       if (id < 0) {
         printf("ERROR: unknown node type %s\n", s->string);
         return HYA_ERR_FAILURE;
       }
       node->type = id;
-    } else if (0 == strcmp(elem->name->string, "children")) {
-      struct json_array_s *a = json_value_as_array(elem->value);
+    } else if (0 == strcmp(obj_elem->name->string, "children")) {
+      struct json_array_s *a = json_value_as_array(obj_elem->value);
       if (!a) {
         printf("ERROR: Init_HYA_Node children value is not an array\n");
         return HYA_ERR_FAILURE;
@@ -365,7 +341,6 @@ HYA_Result Init_HYA_Node(HYA_Node *node, Context *ctx,
         e = e->next;
       }
     }
-    elem = elem->next;
   }
   return HYA_OK;
 }
@@ -398,17 +373,12 @@ void Print_HYA_StateMachineNode(const HYA_StateMachineNode *node,
 
 static HYA_Result Init_HYA_Transition(HYA_Transition *transition,
                                       Context *ctx,
-                                      struct json_object_s *object,
+                                      struct json_value_s *value,
                                       int transition_idx,
                                       StrToIdPair **state_map) {
-  struct json_object_element_s *elem = object->start;
-  while (elem != NULL) {
-    if (0 == strcmp(elem->name->string, "var")) {
-      struct json_string_s *s = json_value_as_string(elem->value);
-      if (!s) {
-        printf("ERROR: Init_HYA_Transition var value is not a string\n");
-        return HYA_ERR_FAILURE;
-      }
+  JSON_OBJ_FOR_EACH(value, object, obj_elem) {
+    if (0 == strcmp(obj_elem->name->string, "var")) {
+      JSON_GET_STRING_FROM_OBJ_ELEM(s, obj_elem);
       int var_id = shget(ctx->var_map, s->string);
       if (var_id < 0) {
         var_id = ctx->next_var_id++;
@@ -416,12 +386,8 @@ static HYA_Result Init_HYA_Transition(HYA_Transition *transition,
       }
       transition->var_id = var_id;
       ContextAddString(ctx, s->string);
-    } else if (0 == strcmp(elem->name->string, "dst_state")) {
-      struct json_string_s *s = json_value_as_string(elem->value);
-      if (!s) {
-        printf("ERROR: Init_HYA_Transition dst_state value is not a string\n");
-        return HYA_ERR_FAILURE;
-      }
+    } else if (0 == strcmp(obj_elem->name->string, "dst_state")) {
+      JSON_GET_STRING_FROM_OBJ_ELEM(s, obj_elem);
       int state_id = shget(*state_map, s->string);
       if (state_id < 0) {
         printf("ERROR: Init_HYA_Transition could not find dst_state %s\n",
@@ -431,26 +397,20 @@ static HYA_Result Init_HYA_Transition(HYA_Transition *transition,
       transition->dst_state_idx = state_id;
     } else {
       printf("WARNING: Init_HYA_Transition unexpected key %s\n",
-             elem->name->string);
+             obj_elem->name->string);
     }
-    elem = elem->next;
   }
   return HYA_OK;
 }
 
 static HYA_Result Init_HYA_State(HYA_State *state,
                                  Context *ctx,
-                                 struct json_object_s *object,
+                                 struct json_value_s *value,
                                  int state_idx, StrToIdPair **state_map) {
   HYA_Result res;
-  struct json_object_element_s *elem = object->start;
-  while (elem != NULL) {
-    if (0 == strcmp(elem->name->string, "name")) {
-      struct json_string_s *s = json_value_as_string(elem->value);
-      if (!s) {
-        printf("ERROR: Init_HYA_State name value is not a string\n");
-        return HYA_ERR_FAILURE;
-      }
+  JSON_OBJ_FOR_EACH(value, object, obj_elem) {
+    if (0 == strcmp(obj_elem->name->string, "name")) {
+      JSON_GET_STRING_FROM_OBJ_ELEM(s, obj_elem);
       int id = shget(*state_map, s->string);
       if (id < 0) {
         printf(
@@ -460,16 +420,16 @@ static HYA_Result Init_HYA_State(HYA_State *state,
       }
       state->state_idx = id;
       state->name = ContextAddString(ctx, s->string);
-    } else if (0 == strcmp(elem->name->string, "interp_time")) {
-      struct json_number_s *n = json_value_as_number(elem->value);
+    } else if (0 == strcmp(obj_elem->name->string, "interp_time")) {
+      struct json_number_s *n = json_value_as_number(obj_elem->value);
       if (!n) {
         printf("ERROR: Init_HYA_State interp_time value is not a number\n");
         return HYA_ERR_FAILURE;
       }
       double d = JSON_NumberToDouble(n);
       state->interp_time = (float)d;
-    } else if (0 == strcmp(elem->name->string, "transitions")) {
-      struct json_array_s *array = json_value_as_array(elem->value);
+    } else if (0 == strcmp(obj_elem->name->string, "transitions")) {
+      struct json_array_s *array = json_value_as_array(obj_elem->value);
       if (!array) {
         printf("ERROR: Init_HYA_State transitions value is not an array\n");
         return HYA_ERR_FAILURE;
@@ -481,42 +441,33 @@ static HYA_Result Init_HYA_State(HYA_State *state,
         printf("ERROR: Init_HYA_State state->transitions alloc failed\n");
         return HYA_ERR_OUT_OF_MEMORY;
       }
-      struct json_array_element_s *el = array->start;
-      int j = 0;
-      while (el != NULL) {
-        struct json_object_s *obj = json_value_as_object(el->value);
-        if (!obj) {
-          printf("ERROR: Init_HYA_State transition element is not an object\n");
-          return HYA_ERR_FAILURE;
-        }
-        res =
-            Init_HYA_Transition(&state->transitions[j], ctx, obj, j, state_map);
+      size_t j = 0;
+      JSON_ARR_FOR_EACH(obj_elem->value, array2, arr_elem) {
+        res = Init_HYA_Transition(&state->transitions[j], ctx, arr_elem->value,
+                                  j, state_map);
         if (res != HYA_OK) {
           printf("ERROR: Init_HYA_State Init_HYA_Transition failed: %d\n", res);
           return HYA_ERR_FAILURE;
         }
-        el = el->next;
         j++;
       }
     } else {
-      printf("WARNING: Init_HYA_State unexpected key %s\n", elem->name->string);
+      printf("WARNING: Init_HYA_State unexpected key %s\n", obj_elem->name->string);
     }
-    elem = elem->next;
   }
   return HYA_OK;
 }
 
 HYA_Result Init_HYA_StateMachineNode(HYA_StateMachineNode *node, Context *ctx,
-                                     struct json_object_s *object) {
+                                     struct json_value_s *value) {
   HYA_Result res;
   memset(node, 0, sizeof(HYA_StateMachineNode));  // NOLINT
-  Init_HYA_Node(&node->node, ctx, object);
-  struct json_object_element_s *element = object->start;
+  Init_HYA_Node(&node->node, ctx, value);
   StrToIdPair *state_map = NULL;
   shdefault(state_map, -1);
-  while (element != NULL) {
-    if (0 == strcmp(element->name->string, "states")) {
-      struct json_array_s *array = json_value_as_array(element->value);
+  JSON_OBJ_FOR_EACH(value, object, obj_elem) {
+    if (0 == strcmp(obj_elem->name->string, "states")) {
+      struct json_array_s *array = json_value_as_array(obj_elem->value);
       if (!array) {
         printf(
             "ERROR: Init_HYA_StateMachineNode states value is not an array\n");
@@ -531,24 +482,11 @@ HYA_Result Init_HYA_StateMachineNode(HYA_StateMachineNode *node, Context *ctx,
       }
 
       // first pass: fill the state_map with all the names.
-      struct json_array_element_s *elem = array->start;
-      int i = 0;
-      while (elem != NULL) {
-        struct json_object_s *obj = json_value_as_object(elem->value);
-        if (!obj) {
-          printf("ERROR: Init_HYA_StateMachineNode state is not an object\n");
-          return HYA_ERR_FAILURE;
-        }
-        struct json_object_element_s *e = obj->start;
-        while (e != NULL) {
-          if (0 == strcmp(e->name->string, "name")) {
-            struct json_string_s *s = json_value_as_string(e->value);
-            if (!s) {
-              printf(
-                  "ERROR: Init_HYA_StateMachineNode name value is not a "
-                  "string\n");
-              return HYA_ERR_FAILURE;
-            }
+      size_t i = 0;
+      JSON_ARR_FOR_EACH(obj_elem->value, array2, arr_elem) {
+        JSON_OBJ_FOR_EACH(arr_elem->value, obj, oe) {
+          if (0 == strcmp(oe->name->string, "name")) {
+            JSON_GET_STRING_FROM_OBJ_ELEM(s, oe);
             int id = shget(state_map, s->string);
             if (id >= 0) {
               printf("ERROR: duplicate state name %s\n", s->string);
@@ -556,33 +494,22 @@ HYA_Result Init_HYA_StateMachineNode(HYA_StateMachineNode *node, Context *ctx,
             }
             shput(state_map, s->string, i);
           }
-          e = e->next;
         }
-        elem = elem->next;
         i++;
       }
 
       // second pass: init node->states[i]
-      elem = array->start;
       i = 0;
-      while (elem != NULL) {
-        struct json_object_s *obj = json_value_as_object(elem->value);
-        if (!obj) {
-          printf(
-              "ERROR: Init_HYA_StateMachineNode state value is not an "
-              "object\n");
-          return HYA_ERR_FAILURE;
-        }
-        res = Init_HYA_State(&node->states[i], ctx, obj, i, &state_map);
+      JSON_ARR_FOR_EACH(obj_elem->value, array3, arr_elem2) {
+        res = Init_HYA_State(&node->states[i], ctx, arr_elem2->value,
+                             i, &state_map);
         if (res != HYA_OK) {
           printf("ERROR: Init_HYA_StateMachineNode Init_HYA_State failed\n");
           return res;
         }
-        elem = elem->next;
         i++;
       }
     }
-    element = element->next;
   }
   shfree(state_map);
   return HYA_OK;
@@ -595,10 +522,10 @@ void Print_HYA_MotionNode(const HYA_MotionNode *node, const HYA_Graph *graph) {
 }
 
 HYA_Result Init_HYA_MotionNode(HYA_MotionNode *node, Context *ctx,
-                               struct json_object_s *object) {
+                               struct json_value_s *value) {
   HYA_Result res;
   memset(node, 0, sizeof(HYA_MotionNode));  // NOLINT
-  res = Init_HYA_Node(&node->node, ctx, object);
+  res = Init_HYA_Node(&node->node, ctx, value);
   if (res != HYA_OK) {
     printf("ERROR: Init_HYA_MotionNode Init_HYA_Node failed %d\n", res);
     return res;
@@ -613,10 +540,10 @@ void Print_HYA_BlendNode(const HYA_BlendNode *node, const HYA_Graph *graph) {
 }
 
 HYA_Result Init_HYA_BlendNode(HYA_BlendNode *node, Context *ctx,
-                              struct json_object_s *object) {
+                              struct json_value_s *value) {
   HYA_Result res;
   memset(node, 0, sizeof(HYA_BlendNode));  // NOLINT
-  res = Init_HYA_Node(&node->node, ctx, object);
+  res = Init_HYA_Node(&node->node, ctx, value);
   if (res != HYA_OK) {
     printf("ERROR: Init_HYA_BlkendNode Init_HYA_Node failed %d\n", res);
     return res;
