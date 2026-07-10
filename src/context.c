@@ -33,6 +33,24 @@ static bool dirname(const char *path, char *out, size_t out_size) {
   return true;
 }
 
+/* Copies the filename part of `path` into `out`.
+ * If `path` ends in a separator, writes "".
+ * Returns false if `out_size` is too small. */
+static bool basename(const char *path, char *out, size_t out_size) {
+  const char *slash = strrchr(path, '/');
+#ifdef _WIN32
+  const char *bslash = strrchr(path, '\\');
+  if (!slash || (bslash && bslash > slash)) {
+    slash = bslash;
+  }
+#endif
+  const char *base = slash ? slash + 1 : path;
+  size_t len = strlen(base);
+  if (len + 1 > out_size) return false;
+  memcpy(out, base, len + 1); /* includes '\0' */
+  return true;
+}
+
 HYA_Result ContextInit(Context *ctx, size_t arena_size, const char *filename) {
   memset(ctx, 0, sizeof(Context));
   shdefault(ctx->node_map, -1);
@@ -44,7 +62,12 @@ HYA_Result ContextInit(Context *ctx, size_t arena_size, const char *filename) {
     printf("ERROR ArenaCreate failure %d\n", res);
     return res;
   }
-  if (!dirname(filename, ctx->path, CONTEXT_PATH_SIZE)) {
+  if (!dirname(filename, ctx->dirname, CONTEXT_PATH_SIZE)) {
+    printf("ERROR: path too long\n");
+    ContextDeinit(ctx);
+    return HYA_ERR_FAILURE;
+  }
+  if (!basename(filename, ctx->basename, CONTEXT_PATH_SIZE)) {
     printf("ERROR: path too long\n");
     ContextDeinit(ctx);
     return HYA_ERR_FAILURE;

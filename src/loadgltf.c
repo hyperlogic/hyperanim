@@ -11,6 +11,9 @@
 #define CGLTF_IMPLEMENTATION
 #include "cgltf.h"
 
+#define LOG_ERROR(fmt, ...) \
+  fprintf(stderr, "ERROR: %s " fmt, __func__, ##__VA_ARGS__)
+
 void PrintNode(cgltf_node *node, int indent_level) {
   for (int i = 0; i < indent_level; i++) printf("  ");
   printf("%s\n", node->name);
@@ -25,16 +28,16 @@ HYA_Result InitSkeletonFromGLTF(const char *filename, HYA_Skeleton *skeleton,
   cgltf_data *data = NULL;
 
   char full[1024];
-  int n = snprintf(full, sizeof full, "%s/%s", ctx->path, filename);
+  int n = snprintf(full, sizeof full, "%s/%s", ctx->dirname, filename);
   if (n < 0 || (size_t)n >= sizeof full) {
     /* truncated (or encoding error) — don't call Load with a mangled path */
-    printf("ERROR: %s path too long: %s/%s\n", __func__, ctx->path, filename);
+    LOG_ERROR("path too long: %s/%s\n", ctx->dirname, filename);
     return HYA_ERR_FAILURE;
   }
 
   cgltf_result result = cgltf_parse_file(&options, full, &data);
   if (result != cgltf_result_success) {
-    printf("ERROR %s gltf_parse_file failed!\n", __func__);
+    LOG_ERROR("gltf_parse_file failed!\n");
     return HYA_ERR_FAILURE;
   }
 
