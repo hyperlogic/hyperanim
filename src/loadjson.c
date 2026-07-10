@@ -35,12 +35,11 @@
     return HYA_ERR_JSON_SCHEMA;                             \
   }
 
-#define JSON_ARR_FOR_EACH(a, e)                                   \
+#define JSON_ARR_FOR_EACH(a, e) \
   for (struct json_array_element_s *e = a->start; e; e = e->next)
 
-#define JSON_OBJ_FOR_EACH(o, e)                                    \
+#define JSON_OBJ_FOR_EACH(o, e) \
   for (struct json_object_element_s *e = o->start; e; e = e->next)
-
 
 static long JSON_NumberToLong(struct json_number_s *n) {
   char *end;
@@ -465,8 +464,8 @@ HYA_Result Init_HYA_StateMachineNode(HYA_StateMachineNode *node, Context *ctx,
     if (0 == strcmp(obj_elem->name->string, "states")) {
       JSON_VAL_TO_ARR(obj_elem->value, a);
       node->num_states = a->length;
-      node->states = (HYA_State *)ArenaAllocFrom(
-          ctx->arena, sizeof(HYA_State) * a->length);
+      node->states = (HYA_State *)ArenaAllocFrom(ctx->arena,
+                                                 sizeof(HYA_State) * a->length);
       if (!node->states) {
         printf("ERROR: Init_HYA_StateMachineNode states alloc failed\n");
         return HYA_ERR_OUT_OF_MEMORY;
