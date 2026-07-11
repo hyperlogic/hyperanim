@@ -143,6 +143,7 @@ typedef struct HYA_Graph {
   HYA_Var *vars;
 
   HYA_Skeleton tpose;
+  HYA_STR_ID root_joint;
 
 } HYA_Graph;
 

@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "root": "main_sm",
-  "tpose": "anim/ybot.glb",
+  "root_node": "main_sm",
+  "tpose_src": "anim/ybot.glb",
   "root_joint": "mixamorig:Hips",
   "nodes": [
     {

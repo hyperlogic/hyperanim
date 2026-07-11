@@ -207,42 +207,59 @@ HYA_Result InitGraph(HYA_Graph *graph, Context *ctx,
                      struct json_value_s *value) {
   HYA_Result res;
 
-  const char *root_name = NULL;
+  const char *root_node = NULL;
+  const char *tpose_src = NULL;
+  const char *root_joint = NULL;
   JSON_VAL_TO_OBJ(value, object);
   JSON_OBJ_FOR_EACH(object, obj_elem) {
     if (0 == strcmp(obj_elem->name->string, "version")) {
       JSON_VAL_TO_NUM(obj_elem->value, n);
       long v = JSON_NumberToLong(n);
       graph->version = v;
-    } else if (0 == strcmp(obj_elem->name->string, "root")) {
+    } else if (0 == strcmp(obj_elem->name->string, "root_node")) {
       JSON_VAL_TO_STR(obj_elem->value, s);
-      root_name = s->string;
+      root_node = s->string;
     } else if (0 == strcmp(obj_elem->name->string, "nodes")) {
       res = BuildNodes(obj_elem->value, graph, ctx);
       if (res != HYA_OK) {
         LOG_ERROR("BuildNodes failed: %d\n", res);
         return res;
       }
-    } else if (0 == strcmp(obj_elem->name->string, "tpose")) {
+    } else if (0 == strcmp(obj_elem->name->string, "tpose_src")) {
       JSON_VAL_TO_STR(obj_elem->value, s);
-      // load the tpose
-      res = InitSkeletonFromGLTF(s->string, &graph->tpose, ctx);
-      if (res != HYA_OK) {
-        LOG_ERROR("InitSkeletonFromGLTF failed: %d\n", res);
-        return res;
-      }
+      tpose_src = s->string;
+    } else if (0 == strcmp(obj_elem->name->string, "root_joint")) {
+      JSON_VAL_TO_STR(obj_elem->value, s);
+      root_joint = s->string;
     } else {
       fprintf(stderr, "WARNING: BuildGraph: Unknown key %s, skipping\n",
               obj_elem->name->string);
     }
   }
-  if (!root_name) {
-    LOG_JSON_VAL_ERR(value, "could not find root_node key\n");
+
+  if (!root_joint) {
+    LOG_JSON_VAL_ERR(value, "missing root_joint key\n");
     return HYA_ERR_JSON_SCHEMA;
   }
-  graph->root = shget(ctx->node_map, root_name);
+  graph->root_joint = ContextAddString(ctx, root_joint);
+
+  if (!tpose_src) {
+    LOG_JSON_VAL_ERR(value, "missing tpose key\n");
+    return HYA_ERR_JSON_SCHEMA;
+  }
+  res = InitSkeletonFromGLTF(tpose_src, graph->root_joint, &graph->tpose, ctx);
+  if (res != HYA_OK) {
+    LOG_ERROR("InitSkeletonFromGLTF failed: %d\n", res);
+    return res;
+  }
+
+  if (!root_node) {
+    LOG_JSON_VAL_ERR(value, "missing root_node key\n");
+    return HYA_ERR_JSON_SCHEMA;
+  }
+  graph->root = shget(ctx->node_map, root_node);
   if (graph->root < 0) {
-    LOG_ERROR("could not find root node %s\n", root_name);
+    LOG_ERROR("could not find root node %s\n", root_node);
     return HYA_ERR_JSON_SCHEMA;
   }
 
