@@ -100,14 +100,14 @@ typedef struct HYA_BlendNode {
 } HYA_BlendNode;
 
 // X(HYA_NodeType, snake_case_name, SCREAMING_SNAKE_CASE_NAME)
-#define HYA_NODE_TYPE_LIST                              \
-  X(HYA_StateMachineNode, state_machine, STATE_MACHINE) \
-  X(HYA_MotionNode, motion, MOTION)                     \
-  X(HYA_BlendNode, blend, BLEND)
+#define HYA_NODE_NAME_LIST                              \
+  X(StateMachine, state_machine, STATE_MACHINE)         \
+  X(Motion, motion, MOTION)                             \
+  X(Blend, blend, BLEND)
 
 enum {
-#define X(Type, name, NAME) HYA_NODE_TYPE_##NAME,
-  HYA_NODE_TYPE_LIST
+#define X(Name, name, NAME) HYA_NODE_TYPE_##NAME,
+  HYA_NODE_NAME_LIST
 #undef X
 };
 
@@ -124,10 +124,10 @@ typedef struct HYA_Graph {
   size_t version;
   HYA_NODE_ID root;
 
-#define X(Type, name, NAME)  \
-  size_t num_##name##_nodes; \
-  Type *name##_nodes;  // NOLINT
-  HYA_NODE_TYPE_LIST
+#define X(Name, name, NAME)                     \
+  size_t num_##name##_nodes;                    \
+  HYA_##Name##Node *name##_nodes;  // NOLINT
+  HYA_NODE_NAME_LIST
 #undef X
 
   // use HYA_NODE_ID to index into this array

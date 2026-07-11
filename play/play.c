@@ -100,8 +100,8 @@ int main(int argc, const char *argv[]) {
     return res;
   }
 
-#define X(Type, name, NAME) shput(ctx.type_map, #name, HYA_NODE_TYPE_##NAME);
-  HYA_NODE_TYPE_LIST
+#define X(Name, name, NAME) shput(ctx.type_map, #name, HYA_NODE_TYPE_##NAME);
+  HYA_NODE_NAME_LIST
 #undef X
 
   HYA_Graph *graph = NULL;
@@ -112,7 +112,7 @@ int main(int argc, const char *argv[]) {
   // NOTE: the strings in the ctx stb_ds maps
   // point directly to data from the json root json_value_s
   // so the ctx shouldn't outlive the root.
-  res = Init_HYA_Graph(graph, &ctx, root);
+  res = InitGraph(graph, &ctx, root);
   if (res != HYA_OK) {
     printf("ERROR: BuildGraph failed: %d\n", res);
     if (res == HYA_ERR_OUT_OF_MEMORY) {
@@ -124,7 +124,7 @@ int main(int argc, const char *argv[]) {
   }
 
   printf("graph using %zu bytes\n", ctx.arena->offset);
-  Print_HYA_Graph(graph);
+  PrintGraph(graph);
 
   ContextDeinit(&ctx);
   free(root);

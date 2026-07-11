@@ -18,16 +18,18 @@ static bool dirname(const char *path, char *out, size_t out_size) {
   }
 #endif
   if (!slash) {
-    if (out_size < 2) return false;
+    if (out_size < 2) {
+      return false;
+    }
     out[0] = '.';
     out[1] = '\0';
     return true;
   }
-
   size_t len = (size_t)(slash - path);
   if (len == 0) len = 1; /* "/graph.json" -> "/" not "" */
-  if (len + 1 > out_size) return false;
-
+  if (len + 1 > out_size) {
+    return false;
+  }
   memcpy(out, path, len);
   out[len] = '\0';
   return true;
@@ -46,7 +48,9 @@ static bool basename(const char *path, char *out, size_t out_size) {
 #endif
   const char *base = slash ? slash + 1 : path;
   size_t len = strlen(base);
-  if (len + 1 > out_size) return false;
+  if (len + 1 > out_size) {
+    return false;
+  }
   memcpy(out, base, len + 1); /* includes '\0' */
   return true;
 }

@@ -14,7 +14,7 @@
 #define LOG_ERROR(fmt, ...) \
   fprintf(stderr, "ERROR: %s " fmt, __func__, ##__VA_ARGS__)
 
-void PrintNode(cgltf_node *node, int indent_level) {
+static void PrintNode(cgltf_node *node, int indent_level) {
   for (int i = 0; i < indent_level; i++) printf("  ");
   printf("%s\n", node->name);
   for (cgltf_size i = 0; i < node->children_count; i++) {
