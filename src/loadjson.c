@@ -205,7 +205,7 @@ static HYA_Result BuildNodes(struct json_value_s *value, HYA_Graph *graph,
 HYA_Result InitGraph(HYA_Graph *graph, Context *ctx,
                      struct json_value_s *value) {
   HYA_Result res;
-
+  memset(graph, 0, sizeof(HYA_Graph));  // NOLINT
   const char *root_node = NULL;
   const char *tpose_src = NULL;
   const char *root_joint = NULL;
@@ -243,13 +243,8 @@ HYA_Result InitGraph(HYA_Graph *graph, Context *ctx,
   graph->root_joint = ContextAddString(ctx, root_joint);
 
   if (!tpose_src) {
-    LOG_JSON_VAL_ERR(value, "missing tpose key\n");
+    LOG_JSON_VAL_ERR(value, "missing tpose_src key\n");
     return HYA_ERR_JSON_SCHEMA;
-  }
-  res = InitSkeletonFromGLTF(tpose_src, graph->root_joint, &graph->tpose, ctx);
-  if (res != HYA_OK) {
-    LOG_ERROR("InitSkeletonFromGLTF failed: %d\n", res);
-    return res;
   }
 
   if (!root_node) {
@@ -324,6 +319,13 @@ HYA_Result InitGraph(HYA_Graph *graph, Context *ctx,
     int id = shget(ctx->str_map, key);
     graph->vars[value].name = id;
   }
+
+  res = InitSkeletonFromGLTF(tpose_src, root_joint, &graph->tpose, ctx);
+  if (res != HYA_OK) {
+    LOG_ERROR("InitSkeletonFromGLTF failed: %d\n", res);
+    return res;
+  }
+
 
   return HYA_OK;
 }

@@ -19,7 +19,7 @@ typedef enum HYA_Result {
   HYA_ERR_FAILURE,
   HYA_ERR_OUT_OF_MEMORY,
   HYA_ERR_JSON_SCHEMA,
-  HYA_ERR_INVALID_ARG,
+  HYA_ERR_UNSUPPORTED,
   HYA_ERR_NOT_FOUND,
 } HYA_Result;
 
@@ -112,7 +112,6 @@ enum {
 };
 
 typedef struct HYA_Skeleton {
-  HYA_STR_ID name;
   HYA_STR_ID *joint_names;
   int *parent_indices;
   HYA_Vec3 *translations;

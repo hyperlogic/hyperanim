@@ -10,7 +10,7 @@
 #include "context.h"
 #include "hyperanim.h"
 
-HYA_Result InitSkeletonFromGLTF(const char *filename, HYA_STR_ID root_joint_id,
+HYA_Result InitSkeletonFromGLTF(const char *filename, const char *root_joint_id,
                                 HYA_Skeleton *skeleton, Context *ctx);
 HYA_Result InitMotionFromGLTF(const char *filename, HYA_MotionNode *motion,
                               Context *ctx);

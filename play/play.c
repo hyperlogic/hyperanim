@@ -106,7 +106,6 @@ int main(int argc, const char *argv[]) {
   HYA_Graph *graph = NULL;
   assert(ctx.arena->offset == 0);  // graph must be the first allocation
   graph = (HYA_Graph *)ArenaAllocFrom(ctx.arena, sizeof(HYA_Graph));
-  memset(graph, 0, sizeof(HYA_Graph));  // NOLINT
 
   // NOTE: the strings in the ctx stb_ds maps
   // point directly to data from the json root json_value_s
