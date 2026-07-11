@@ -17,13 +17,12 @@ void PrintNode(const HYA_Node *node, const HYA_Graph *graph);
 
 HYA_Result InitGraph(HYA_Graph *graph, Context *ctx,
                      struct json_value_s *value);
-HYA_Result InitNode(HYA_Node *node, Context *ctx,
-                    struct json_value_s *value);
+HYA_Result InitNode(HYA_Node *node, Context *ctx, struct json_value_s *value);
 
-#define X(Name, name, NAME)                                             \
-  void Print##Name##Node(const HYA_##Name##Node *node,                  \
-                         const HYA_Graph *graph);                       \
-  HYA_Result Init##Name##Node(HYA_##Name##Node *node, Context *ctx,     \
+#define X(Name, name, NAME)                                         \
+  void Print##Name##Node(const HYA_##Name##Node *node,              \
+                         const HYA_Graph *graph);                   \
+  HYA_Result Init##Name##Node(HYA_##Name##Node *node, Context *ctx, \
                               struct json_value_s *value);
 HYA_NODE_NAME_LIST
 #undef X

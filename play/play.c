@@ -78,10 +78,9 @@ int main(int argc, const char *argv[]) {
   }
 
   struct json_parse_result_s parse_result;
-  struct json_value_s *root =
-      json_parse_ex((const void *)buf, buf_size,
-                    json_parse_flags_allow_location_information, NULL,
-                    NULL, &parse_result);
+  struct json_value_s *root = json_parse_ex(
+      (const void *)buf, buf_size, json_parse_flags_allow_location_information,
+      NULL, NULL, &parse_result);
   free(buf);
   if (!root) {
     printf("ERROR: parsing %s\n", argv[1]);

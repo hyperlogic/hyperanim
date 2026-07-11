@@ -22,10 +22,8 @@ static void PrintNode(cgltf_node *node, int indent_level) {
   }
 }
 
-HYA_Result InitSkeletonFromGLTF(const char *filename,
-                                HYA_STR_ID root_joint_id,
-                                HYA_Skeleton *skeleton,
-                                Context *ctx) {
+HYA_Result InitSkeletonFromGLTF(const char *filename, HYA_STR_ID root_joint_id,
+                                HYA_Skeleton *skeleton, Context *ctx) {
   cgltf_options options = {0};
   cgltf_data *data = NULL;
 

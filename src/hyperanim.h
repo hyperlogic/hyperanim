@@ -100,9 +100,9 @@ typedef struct HYA_BlendNode {
 } HYA_BlendNode;
 
 // X(HYA_NodeType, snake_case_name, SCREAMING_SNAKE_CASE_NAME)
-#define HYA_NODE_NAME_LIST                              \
-  X(StateMachine, state_machine, STATE_MACHINE)         \
-  X(Motion, motion, MOTION)                             \
+#define HYA_NODE_NAME_LIST                      \
+  X(StateMachine, state_machine, STATE_MACHINE) \
+  X(Motion, motion, MOTION)                     \
   X(Blend, blend, BLEND)
 
 enum {
@@ -124,8 +124,8 @@ typedef struct HYA_Graph {
   size_t version;
   HYA_NODE_ID root;
 
-#define X(Name, name, NAME)                     \
-  size_t num_##name##_nodes;                    \
+#define X(Name, name, NAME)  \
+  size_t num_##name##_nodes; \
   HYA_##Name##Node *name##_nodes;  // NOLINT
   HYA_NODE_NAME_LIST
 #undef X

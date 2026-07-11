@@ -7,23 +7,22 @@
 #include "loadgltf.h"
 #include "stb_ds.h"
 
-#define LOG_ERROR(fmt, ...)                                  \
+#define LOG_ERROR(fmt, ...) \
   fprintf(stderr, "ERROR: %s " fmt, __func__, ##__VA_ARGS__)
 
 /* Requires the parser to have been called with
    json_parse_flags_allow_location_information; otherwise the cast reads
    uninitialized memory. Relies on `ctx` being in scope. */
-#define LOG_JSON_VAL_ERR(v, fmt, ...)                              \
-  fprintf(stderr, "%s:%zu:%zu: ERROR: %s " fmt, ctx->basename,     \
-          ((struct json_value_ex_s *)(v))->line_no,                \
-          ((struct json_value_ex_s *)(v))->row_no, __func__,       \
-          ##__VA_ARGS__)
+#define LOG_JSON_VAL_ERR(v, fmt, ...)                          \
+  fprintf(stderr, "%s:%zu:%zu: ERROR: %s " fmt, ctx->basename, \
+          ((struct json_value_ex_s *)(v))->line_no,            \
+          ((struct json_value_ex_s *)(v))->row_no, __func__, ##__VA_ARGS__)
 
-#define JSON_VAL_TO_ARR(v, a)                        \
-  struct json_array_s *a = json_value_as_array(v);   \
-  if (!a) {                                          \
-    LOG_JSON_VAL_ERR(v, "value is not an array\n");  \
-    return HYA_ERR_JSON_SCHEMA;                      \
+#define JSON_VAL_TO_ARR(v, a)                       \
+  struct json_array_s *a = json_value_as_array(v);  \
+  if (!a) {                                         \
+    LOG_JSON_VAL_ERR(v, "value is not an array\n"); \
+    return HYA_ERR_JSON_SCHEMA;                     \
   }
 
 #define JSON_VAL_TO_STR(v, s)                        \
@@ -166,15 +165,15 @@ static HYA_Result BuildNodes(struct json_value_s *value, HYA_Graph *graph,
 
   // now allocate arrays for each node type and set counts back to zero
   // for second pass
-#define X(Name, name, NAME)                                                 \
-  if (graph->num_##name##_nodes > 0) {                                      \
-    graph->name##_nodes = (HYA_##Name##Node *)ArenaAllocFrom(               \
-        ctx->arena, sizeof(HYA_##Name##Node) * graph->num_##name##_nodes);  \
-    if (!graph->name##_nodes) {                                             \
-      LOG_ERROR("%s allocate failed\n", #name "_nodes");                    \
-      return HYA_ERR_OUT_OF_MEMORY;                                         \
-    }                                                                       \
-    graph->num_##name##_nodes = 0;                                          \
+#define X(Name, name, NAME)                                                \
+  if (graph->num_##name##_nodes > 0) {                                     \
+    graph->name##_nodes = (HYA_##Name##Node *)ArenaAllocFrom(              \
+        ctx->arena, sizeof(HYA_##Name##Node) * graph->num_##name##_nodes); \
+    if (!graph->name##_nodes) {                                            \
+      LOG_ERROR("%s allocate failed\n", #name "_nodes");                   \
+      return HYA_ERR_OUT_OF_MEMORY;                                        \
+    }                                                                      \
+    graph->num_##name##_nodes = 0;                                         \
   }
   HYA_NODE_NAME_LIST
 #undef X
@@ -272,11 +271,11 @@ HYA_Result InitGraph(HYA_Graph *graph, Context *ctx,
     return HYA_ERR_OUT_OF_MEMORY;
   }
 
-#define X(Name, name, NAME)                                            \
-  for (size_t i = 0; i < graph->num_##name##_nodes; i++) {             \
-    HYA_##Name##Node *node = &graph->name##_nodes[i]; /* NOLINT */     \
-    assert(node && node->node.id >= 0);                                \
-    graph->node_ptrs[node->node.id] = (HYA_Node *)node;                \
+#define X(Name, name, NAME)                                        \
+  for (size_t i = 0; i < graph->num_##name##_nodes; i++) {         \
+    HYA_##Name##Node *node = &graph->name##_nodes[i]; /* NOLINT */ \
+    assert(node && node->node.id >= 0);                            \
+    graph->node_ptrs[node->node.id] = (HYA_Node *)node;            \
   }
   HYA_NODE_NAME_LIST
 #undef X
@@ -329,8 +328,7 @@ HYA_Result InitGraph(HYA_Graph *graph, Context *ctx,
   return HYA_OK;
 }
 
-HYA_Result InitNode(HYA_Node *node, Context *ctx,
-                    struct json_value_s *value) {
+HYA_Result InitNode(HYA_Node *node, Context *ctx, struct json_value_s *value) {
   JSON_VAL_TO_OBJ(value, object);
   JSON_OBJ_FOR_EACH(object, obj_elem) {
     if (0 == strcmp(obj_elem->name->string, "name")) {
@@ -402,8 +400,7 @@ void PrintStateMachineNode(const HYA_StateMachineNode *node,
 }
 
 static HYA_Result InitTransition(HYA_Transition *transition, Context *ctx,
-                                 struct json_value_s *value,
-                                 int transition_idx,
+                                 struct json_value_s *value, int transition_idx,
                                  StrToIdPair **state_map) {
   JSON_VAL_TO_OBJ(value, object);
   JSON_OBJ_FOR_EACH(object, obj_elem) {
@@ -425,8 +422,7 @@ static HYA_Result InitTransition(HYA_Transition *transition, Context *ctx,
       }
       transition->dst_state_idx = state_id;
     } else {
-      LOG_JSON_VAL_ERR(obj_elem, "unexpected key %s\n",
-                       obj_elem->name->string);
+      LOG_JSON_VAL_ERR(obj_elem, "unexpected key %s\n", obj_elem->name->string);
     }
   }
   return HYA_OK;
@@ -462,8 +458,8 @@ static HYA_Result InitState(HYA_State *state, Context *ctx,
       }
       size_t j = 0;
       JSON_ARR_FOR_EACH(a, arr_elem) {
-        res = InitTransition(&state->transitions[j], ctx, arr_elem->value,
-                             j, state_map);
+        res = InitTransition(&state->transitions[j], ctx, arr_elem->value, j,
+                             state_map);
         if (res != HYA_OK) {
           LOG_ERROR("InitTransition failed: %d\n", res);
           return HYA_ERR_JSON_SCHEMA;
@@ -518,8 +514,7 @@ HYA_Result InitStateMachineNode(HYA_StateMachineNode *node, Context *ctx,
       // second pass: init node->states[i]
       i = 0;
       JSON_ARR_FOR_EACH(a, arr_elem) {
-        res = InitState(&node->states[i], ctx, arr_elem->value, i,
-                        &state_map);
+        res = InitState(&node->states[i], ctx, arr_elem->value, i, &state_map);
         if (res != HYA_OK) {
           LOG_ERROR("InitState failed\n");
           return res;
