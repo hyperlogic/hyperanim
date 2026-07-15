@@ -14,12 +14,10 @@
 #include "cgltf.h"
 #include "stb_ds.h"
 
+#include "mathutil.h"
+
 #define LOG_ERROR(fmt, ...) \
   fprintf(stderr, "ERROR: %s " fmt, __func__, ##__VA_ARGS__)
-
-static void MatToTRS(const float mat[16], HYA_Vec3 *t, HYA_Quat *r, HYA_Vec3 *s) {
-  // TODO:
-}
 
 static void PrintNode(cgltf_node *node, int indent_level) {
   for (int i = 0; i < indent_level; i++) printf("  ");
@@ -29,8 +27,8 @@ static void PrintNode(cgltf_node *node, int indent_level) {
   }
 }
 
-static void TraverseNodes(cgltf_node *node, const char* root_joint,
-                          cgltf_node ***joints, bool* push) {
+static void TraverseNodes(cgltf_node *node, const char *root_joint,
+                          cgltf_node ***joints, bool *push) {
   bool is_root = 0 == strcmp(node->name, root_joint);
   if (is_root) {
     *push = true;
@@ -85,7 +83,7 @@ HYA_Result InitSkeletonFromGLTF(const char *filename, const char *root_joint,
   StrToIdPair *joint_map;
   shdefault(joint_map, -1);
   for (ptrdiff_t i = 0; i < num_joints; i++) {
-    const cgltf_node* joint = joints[i];
+    const cgltf_node *joint = joints[i];
     skeleton->joint_names[i] = ContextAddString(ctx, joint->name);
     int id = shget(joint_map, joint->name);
     if (id >= 0) {
@@ -95,8 +93,8 @@ HYA_Result InitSkeletonFromGLTF(const char *filename, const char *root_joint,
     shput(joint_map, joint->name, i);
     if (joint->has_matrix) {
       HYA_Vec3 scale;
-      MatToTRS(joint->matrix, skeleton->translations + i,
-                   skeleton->rotations + i, &scale);
+      Mat4Decompose(joint->matrix, skeleton->translations + i,
+                    skeleton->rotations + i, &scale);
       LOG_ERROR("joint->has_matrix not supported\n");
       return HYA_ERR_UNSUPPORTED;
     } else {

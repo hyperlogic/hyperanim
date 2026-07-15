@@ -326,7 +326,6 @@ HYA_Result InitGraph(HYA_Graph *graph, Context *ctx,
     return res;
   }
 
-
   return HYA_OK;
 }
 

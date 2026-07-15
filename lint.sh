@@ -3,7 +3,7 @@ set -e
 cd "$(dirname "$0")"
 
 # C sources to lint (excluding third-party cook/json.h).
-FILES="src/*.h src/*.c play/*.c"
+FILES="src/*.h src/*.c play/*.c test/*.c"
 
 # Formatting check; pass --fix to reformat in place.
 if [ "$1" == "--fix" ]; then

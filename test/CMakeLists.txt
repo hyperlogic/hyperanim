@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
-set(PROJECT_NAME play)
+set(PROJECT_NAME test)
 project(${PROJECT_NAME} LANGUAGES C)
 set(CMAKE_C_STANDARD 11)
 
@@ -15,7 +15,7 @@ add_executable(${PROJECT_NAME}
   ../src/loadjson.c
   ../src/loadgltf.c
   ../src/mathutil.c
-  play.c
+  test.c
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../src ${CMAKE_CURRENT_SOURCE_DIR}/../vendor)
