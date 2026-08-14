@@ -19,6 +19,11 @@
 #define LOG_ERROR(fmt, ...) \
   fprintf(stderr, "ERROR: %s " fmt, __func__, ##__VA_ARGS__)
 
+#define LOG_WARNING(fmt, ...) \
+  fprintf(stderr, "WARNING: %s " fmt, __func__, ##__VA_ARGS__)
+
+#define kScaleEpsilon 0.001f
+
 static void PrintNode(cgltf_node *node, int indent_level) {
   for (int i = 0; i < indent_level; i++) printf("  ");
   printf("%s\n", node->name);
@@ -75,9 +80,9 @@ HYA_Result InitSkeletonFromGLTF(const char *filename, const char *root_joint,
       ctx->arena, sizeof(HYA_STR_ID) * num_joints, sizeof(HYA_STR_ID));
   skeleton->parent_indices = (int *)ArenaAllocFromAligned(
       ctx->arena, sizeof(int) * num_joints, sizeof(int));
-  skeleton->translations = (HYA_Vec3 *)ArenaAllocFromAligned(
-      ctx->arena, sizeof(HYA_Vec3) * num_joints, sizeof(float));
-  skeleton->rotations = (HYA_Quat *)ArenaAllocFromAligned(
+  skeleton->ts = (HYA_Vec4 *)ArenaAllocFromAligned(
+      ctx->arena, sizeof(HYA_Vec4) * num_joints, sizeof(float));
+  skeleton->r = (HYA_Quat *)ArenaAllocFromAligned(
       ctx->arena, sizeof(HYA_Quat) * num_joints, sizeof(float));
 
   StrToIdPair *joint_map;
@@ -92,24 +97,35 @@ HYA_Result InitSkeletonFromGLTF(const char *filename, const char *root_joint,
     }
     shput(joint_map, joint->name, i);
     if (joint->has_matrix) {
-      HYA_Vec3 scale;
-      Mat4Decompose(joint->matrix, skeleton->translations + i,
-                    skeleton->rotations + i, &scale);
-      LOG_ERROR("joint->has_matrix not supported\n");
-      return HYA_ERR_UNSUPPORTED;
+      HYA_Vec3 scale, trans;
+      Mat4Decompose(joint->matrix, &trans, skeleton->r + i, &scale);
+      if (fabs(scale.x - scale.y) > kScaleEpsilon ||
+          fabs(scale.x - scale.z) > kScaleEpsilon) {
+        LOG_WARNING("joint[%td] matrix scale is not uniform\n", i);
+      }
+      skeleton->ts[i] = (HYA_Vec4){trans.x, trans.y, trans.z, scale.x};
     } else {
       if (joint->has_translation) {
-        skeleton->translations[i].x = joint->translation[0];
-        skeleton->translations[i].y = joint->translation[1];
-        skeleton->translations[i].z = joint->translation[2];
+        skeleton->ts[i].x = joint->translation[0];
+        skeleton->ts[i].y = joint->translation[1];
+        skeleton->ts[i].z = joint->translation[2];
+      }
+      if (joint->has_scale) {
+        if (fabs(joint->scale[0] - joint->scale[1]) > kScaleEpsilon ||
+            fabs(joint->scale[0] - joint->scale[2]) > kScaleEpsilon) {
+          LOG_WARNING("joint[%td] scale is not uniform\n", i);
+        }
+        skeleton->ts[i].w = joint->scale[0];
+      } else {
+        skeleton->ts[i].w = 1.0f;
       }
       if (joint->has_rotation) {
-        skeleton->rotations[i].x = joint->rotation[0];
-        skeleton->rotations[i].y = joint->rotation[1];
-        skeleton->rotations[i].z = joint->rotation[2];
-        skeleton->rotations[i].w = joint->rotation[3];
+        skeleton->r[i].x = joint->rotation[0];
+        skeleton->r[i].y = joint->rotation[1];
+        skeleton->r[i].z = joint->rotation[2];
+        skeleton->r[i].w = joint->rotation[3];
       } else {
-        skeleton->rotations[i].w = 1.0f;
+        skeleton->r[i].w = 1.0f;
       }
     }
   }

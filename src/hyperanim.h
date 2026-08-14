@@ -10,10 +10,6 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-#if defined(HYA_IMPLEMENTATION)
-#define HYA_API extern inline  // Provide external definition
-#endif
-
 typedef enum HYA_Result {
   HYA_OK = 0,  // success is always zero
   HYA_ERR_FAILURE,
@@ -26,6 +22,10 @@ typedef enum HYA_Result {
 typedef struct HYA_Vec3 {
   float x, y, z;
 } HYA_Vec3;
+
+typedef struct HYA_Vec4 {
+  float x, y, z, w;
+} HYA_Vec4;
 
 typedef struct HYA_Quat {
   float x, y, z, w;
@@ -86,8 +86,8 @@ enum {
 
 typedef struct HYA_MotionNode {
   HYA_Node node;
-  HYA_Vec3 *translations;  // [num_frames, num_joints]
-  HYA_Quat *rotations;     // [num_frames, num_joints]
+  HYA_Vec4 *ts;  // [num_frames, num_joints]
+  HYA_Quat *r;   // [num_frames, num_joints]
   float sample_rate;
   size_t num_joints;
   size_t num_frames;
@@ -114,8 +114,8 @@ enum {
 typedef struct HYA_Skeleton {
   HYA_STR_ID *joint_names;
   int *parent_indices;
-  HYA_Vec3 *translations;
-  HYA_Quat *rotations;
+  HYA_Vec4 *ts;  // translation (xyz) and uniform scale (w)
+  HYA_Quat *r;   // rotation
   size_t num_joints;
 } HYA_Skeleton;
 
@@ -146,11 +146,4 @@ typedef struct HYA_Graph {
 
 } HYA_Graph;
 
-HYA_Graph *HYA_Load(const char *filename);
-
-#if defined(HYA_IMPLEMENTATION)
-
-HYA_API HYA_Graph *HYA_Load(const char *filename) { return NULL; }
-
-#endif  // defined(HYA_IMPLEMENTATION)
 #endif  // HYPERANIM_H
