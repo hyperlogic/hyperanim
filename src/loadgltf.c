@@ -71,6 +71,41 @@ static bool IsSkeletonSame(cgltf_node **node_arr, const HYA_Skeleton *skeleton,
   return true;
 }
 
+static void PrintAccessor(const cgltf_accessor *acc) {
+  printf("AJT:            name = %s\n", acc->name);
+  printf("AJT:            component_type = %d\n", acc->component_type);
+  printf("AJT:            normalized = %d\n", acc->normalized);
+  printf("AJT:            type = %d\n", acc->type);
+  printf("AJT:            offset = %zu\n", acc->offset);
+  printf("AJT:            count = %zu\n", acc->count);
+  printf("AJT:            stride = %zu\n", acc->stride);
+}
+
+static void PrintChannel(const cgltf_animation_channel *channel) {
+  printf("AJT:        sampler = %p\n", channel->sampler);
+  printf("AJT:        target_node = %s\n", channel->target_node->name);
+  const char *str = NULL;
+  switch (channel->target_path) {
+    default:
+    case cgltf_animation_path_type_invalid:
+      str = "invalid";
+      break;
+    case cgltf_animation_path_type_translation:
+      str = "translation";
+      break;
+    case cgltf_animation_path_type_rotation:
+      str = "rotation";
+      break;
+    case cgltf_animation_path_type_scale:
+      str = "scale";
+      break;
+    case cgltf_animation_path_type_weights:
+      str = "weights";
+      break;
+  }
+  printf("AJT:        target_path = %s\n", str);
+}
+
 HYA_Result InitSkeletonFromGLTF(const char *filename, const char *root_joint,
                                 HYA_Skeleton *skeleton, Context *ctx) {
   cgltf_options options = {0};
@@ -191,10 +226,21 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
     return HYA_ERR_FAILURE;
   }
 
+  // load the gltf
   cgltf_result result = cgltf_parse_file(&options, full, &data);
   if (result != cgltf_result_success) {
     LOG_ERROR("gltf_parse_file failed!\n");
     return HYA_ERR_FAILURE;
+  }
+
+  // check animation count
+  if (data->animations_count == 0) {
+    LOG_ERROR("no animations found in gltf %s\n", full);
+    return HYA_ERR_FAILURE;
+  }
+  if (data->animations_count != 1) {
+    LOG_WARNING("more then one animaiton found in gltf %s, using the first\n",
+                full);
   }
 
   // build a flat arr of cgltf_node joints
@@ -219,6 +265,29 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
   if (!IsSkeletonSame(node_arr, skeleton, ctx)) {
     return HYA_ERR_SKELETON_MISMATCH;
   }
+
+  const cgltf_animation *anim = &data->animations[0];
+  assert(anim);
+
+  printf("AJT: name = %s\n", anim->name);
+  printf("AJT: samplers_count = %zu\n", anim->samplers_count);
+  for (size_t i = 0; i < anim->samplers_count; i++) {
+    printf("AJT:    sampler[%zu]\n", i);
+    printf("AJT:        input = %p\n", anim->samplers[i].input);
+    PrintAccessor(anim->samplers[i].input);
+    printf("AJT:        output = %p\n", anim->samplers[i].output);
+    PrintAccessor(anim->samplers[i].output);
+    printf("AJT:        interp = %s\n",
+           anim->samplers[i].interpolation == 0
+               ? "linear"
+               : (anim->samplers[i].interpolation == 1 ? "step" : "cubic"));
+  }
+  printf("AJT: channels_count = %zu\n", anim->channels_count);
+  for (size_t i = 0; i < anim->channels_count; i++) {
+    printf("AJT:    channel[%zu]\n", i);
+    PrintChannel(&anim->channels[i]);
+  }
+  printf("AJT: extensions_count = %zu\n", anim->extensions_count);
 
   return HYA_ERR_NOT_IMPLEMENTED;
 }
