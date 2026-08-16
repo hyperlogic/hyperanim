@@ -32,22 +32,25 @@ static void PrintNode(cgltf_node *node, int indent_level) {
   }
 }
 
-// traverse gltf_node hierarchy recursively pushing each node
-// in pre order, such that parent's are aways before children.
-static void BuildNodeArr(cgltf_node *node, const char *root_joint,
-                         cgltf_node ***joints, bool *push) {
-  bool is_root = 0 == strcmp(node->name, root_joint);
-  if (is_root) {
-    *push = true;
-  }
-  if (*push) {
-    arrpush(*joints, node);
+static cgltf_node *FindNode(cgltf_node *node, const char *name) {
+  if (0 == strcmp(node->name, name)) {
+    return node;
   }
   for (cgltf_size i = 0; i < node->children_count; i++) {
-    BuildNodeArr(node->children[i], root_joint, joints, push);
+    cgltf_node *result = FindNode(node->children[i], name);
+    if (result) {
+      return result;
+    }
   }
-  if (is_root) {
-    *push = false;
+  return NULL;
+}
+
+// traverse gltf_node hierarchy recursively pushing each node
+// in pre-order, such that parent's are aways before children.
+static void BuildNodeArr(cgltf_node *node, cgltf_node ***node_arr) {
+  arrpush(*node_arr, node);
+  for (cgltf_size i = 0; i < node->children_count; i++) {
+    BuildNodeArr(node->children[i], node_arr);
   }
 }
 
@@ -71,10 +74,14 @@ HYA_Result InitSkeletonFromGLTF(const char *filename, const char *root_joint,
     return HYA_ERR_FAILURE;
   }
 
-  // build node_arr
+  // build node_arr from root_joint
   cgltf_node **node_arr = NULL;
-  bool push = false;
-  BuildNodeArr(data->scene->nodes[0], root_joint, &node_arr, &push);
+  cgltf_node *root_node = FindNode(data->scene->nodes[0], root_joint);
+  if (!root_node) {
+    LOG_ERROR("could not find root_joint %s in scene\n", root_joint);
+    return HYA_ERR_FAILURE;
+  }
+  BuildNodeArr(root_node, &node_arr);
   ptrdiff_t num_nodes = arrlen(node_arr);
 
   // allocate skeleton arrays
@@ -181,9 +188,16 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
     return HYA_ERR_FAILURE;
   }
   const char *root_joint = ctx->str_arr[skeleton->joint_names[0]];
-  BuildNodeArr(data->scene->nodes[0], root_joint, &joints, &push);
-  ptrdiff_t num_joints = arrlen(joints);
-  printf("num_joints = %td\n", num_joints);
+
+  // build node_arr from root_joint
+  cgltf_node **node_arr = NULL;
+  cgltf_node *root_node = FindNode(data->scene->nodes[0], root_joint);
+  if (!root_node) {
+    LOG_ERROR("could not find root_joint %s in scene\n", root_joint);
+    return HYA_ERR_FAILURE;
+  }
+  BuildNodeArr(root_node, &node_arr);
+  ptrdiff_t num_nodes = arrlen(node_arr);
 
   return HYA_ERR_NOT_IMPLEMENTED;
 }
