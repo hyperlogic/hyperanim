@@ -106,8 +106,22 @@ HYA_STR_ID ContextInternString(Context *ctx, const char *str) {
   int str_id = shget(ctx->str_map, str);
   if (str_id < 0) {
     str_id = arrlen(ctx->str_arr);
-    shput(ctx->str_map, str, str_id);
-    arrpush(ctx->str_arr, str);
+
+    // make a copy of the string in the arena
+    size_t len = strlen(str);  // NOLINT
+    char *arena_str = (char *)ArenaAllocFrom(ctx->arena, len + 1);
+    if (!arena_str) {
+      fprintf(stderr,
+              "ERROR: ContextInternString: failure allocating string of %zu "
+              "bytes\n",
+              len + 1);
+      return -1;
+    }
+    strcpy(arena_str, str);  // NOLINT
+
+    // push the arena_str to the str_map and str_arr
+    shput(ctx->str_map, arena_str, str_id);
+    arrpush(ctx->str_arr, arena_str);
   }
   return str_id;
 }

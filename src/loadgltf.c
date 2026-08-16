@@ -54,6 +54,23 @@ static void BuildNodeArr(cgltf_node *node, cgltf_node ***node_arr) {
   }
 }
 
+static bool IsSkeletonSame(cgltf_node **node_arr, const HYA_Skeleton *skeleton,
+                           Context *ctx) {
+  if (skeleton->num_joints != arrlen(node_arr)) {
+    printf("count mismatch %zu, %td\n", skeleton->num_joints, arrlen(node_arr));
+    return false;
+  }
+  for (ptrdiff_t i = 0; i < arrlen(node_arr); i++) {
+    if (0 !=
+        strcmp(ctx->str_arr[skeleton->joint_names[i]], node_arr[i]->name)) {
+      printf("%td idx=%d, %s != %s\n", i, skeleton->joint_names[i],
+             ctx->str_arr[skeleton->joint_names[i]], node_arr[i]->name);
+      return false;
+    }
+  }
+  return true;
+}
+
 HYA_Result InitSkeletonFromGLTF(const char *filename, const char *root_joint,
                                 HYA_Skeleton *skeleton, Context *ctx) {
   cgltf_options options = {0};
@@ -198,6 +215,10 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
   }
   BuildNodeArr(root_node, &node_arr);
   ptrdiff_t num_nodes = arrlen(node_arr);
+
+  if (!IsSkeletonSame(node_arr, skeleton, ctx)) {
+    return HYA_ERR_SKELETON_MISMATCH;
+  }
 
   return HYA_ERR_NOT_IMPLEMENTED;
 }

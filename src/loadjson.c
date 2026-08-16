@@ -310,17 +310,7 @@ HYA_Result InitGraph(HYA_Graph *graph, Context *ctx,
     return HYA_ERR_OUT_OF_MEMORY;
   }
   for (ptrdiff_t i = 0; i < n; i++) {
-    char *key = (char *)ctx->str_arr[i];
-    // key string points into json, so we must copy it.
-    size_t len = strlen(key);  // NOLINT
-    char *arena_str = (char *)ArenaAllocFrom(ctx->arena, len + 1);
-    if (!arena_str) {
-      LOG_ERROR("failure allocating string of %zu bytes\n", len + 1);
-      return HYA_ERR_OUT_OF_MEMORY;
-    }
-    strcpy(arena_str, key);  // NOLINT
-    arena_str[len] = 0;
-    str_ptrs[i] = arena_str;
+    str_ptrs[i] = ctx->str_arr[i];
   }
   graph->str_ptrs = (const char **)str_ptrs;
 
