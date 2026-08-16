@@ -94,6 +94,7 @@ void ContextDeinit(Context *ctx) {
   shfree(ctx->type_map);
   shfree(ctx->var_map);
   shfree(ctx->str_map);
+  arrfree(ctx->str_arr);
 }
 
 void ContextDestroy(Context *ctx) {
@@ -101,11 +102,12 @@ void ContextDestroy(Context *ctx) {
   free(ctx);
 }
 
-HYA_STR_ID ContextAddString(Context *ctx, const char *str) {
+HYA_STR_ID ContextInternString(Context *ctx, const char *str) {
   int str_id = shget(ctx->str_map, str);
   if (str_id < 0) {
-    str_id = ctx->next_str_id++;
+    str_id = arrlen(ctx->str_arr);
     shput(ctx->str_map, str, str_id);
+    arrput(ctx->str_arr, str);
   }
   return str_id;
 }

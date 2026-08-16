@@ -39,6 +39,13 @@
     return HYA_ERR_JSON_SCHEMA;                      \
   }
 
+#define JSON_VAL_TO_BOOL(v, b)                    \
+  bool b = json_value_is_true(v);                 \
+  if (!b && !json_value_is_false(v)) {            \
+    LOG_JSON_VAL_ERR(v, "value is not a bool\n"); \
+    return HYA_ERR_JSON_SCHEMA;                   \
+  }
+
 #define JSON_VAL_TO_OBJ(v, o)                        \
   struct json_object_s *o = json_value_as_object(v); \
   if (!o) {                                          \
@@ -240,7 +247,7 @@ HYA_Result InitGraph(HYA_Graph *graph, Context *ctx,
     LOG_JSON_VAL_ERR(value, "missing root_joint key\n");
     return HYA_ERR_JSON_SCHEMA;
   }
-  graph->root_joint = ContextAddString(ctx, root_joint);
+  graph->root_joint = ContextInternString(ctx, root_joint);
 
   if (!tpose_src) {
     LOG_JSON_VAL_ERR(value, "missing tpose_src key\n");
@@ -275,20 +282,36 @@ HYA_Result InitGraph(HYA_Graph *graph, Context *ctx,
   HYA_NODE_NAME_LIST
 #undef X
 
+  // load the tpose
+  res = InitSkeletonFromGLTF(tpose_src, root_joint, &graph->tpose, ctx);
+  if (res != HYA_OK) {
+    LOG_ERROR("InitSkeletonFromGLTF failed: %d\n", res);
+    return res;
+  }
+
+  // now load each gltf node.
+  for (size_t i = 0; i < graph->num_motion_nodes; i++) {
+    HYA_MotionNode *node = &graph->motion_nodes[i];
+    const char *src = ctx->str_arr[node->src];
+    res = InitMotionFromGLTF(src, &graph->tpose, &node->motion,
+                             node->sample_rate, node->loop, ctx);
+    if (HYA_OK != res) {
+      LOG_ERROR("InitMotionFromGLTF for %s failed, %d\n", src, res);
+      return res;
+    }
+  }
+
   // create ptrs to each string in the str_map
-  graph->num_str_ptrs = (size_t)ctx->next_str_id;
-  char **str_ptrs =
-      (char **)ArenaAllocFrom(ctx->arena, sizeof(char *) * graph->num_str_ptrs);
+  ptrdiff_t n = arrlen(ctx->str_arr);
+  graph->num_str_ptrs = n;
+  char **str_ptrs = (char **)ArenaAllocFrom(ctx->arena, sizeof(char *) * n);
   if (!str_ptrs) {
     LOG_ERROR("str_ptrs alloc failed\n");
     return HYA_ERR_OUT_OF_MEMORY;
   }
-  ptrdiff_t n = shlen(ctx->str_map);  // number of pairs
   for (ptrdiff_t i = 0; i < n; i++) {
-    char *key = ctx->str_map[i].key;
-    size_t value = ctx->str_map[i].value;
-
-    // copy key from map into ctx->arena
+    char *key = (char *)ctx->str_arr[i];
+    // key string points into json, so we must copy it.
     size_t len = strlen(key);  // NOLINT
     char *arena_str = (char *)ArenaAllocFrom(ctx->arena, len + 1);
     if (!arena_str) {
@@ -297,7 +320,7 @@ HYA_Result InitGraph(HYA_Graph *graph, Context *ctx,
     }
     strcpy(arena_str, key);  // NOLINT
     arena_str[len] = 0;
-    str_ptrs[value] = arena_str;
+    str_ptrs[i] = arena_str;
   }
   graph->str_ptrs = (const char **)str_ptrs;
 
@@ -320,12 +343,6 @@ HYA_Result InitGraph(HYA_Graph *graph, Context *ctx,
     graph->vars[value].name = id;
   }
 
-  res = InitSkeletonFromGLTF(tpose_src, root_joint, &graph->tpose, ctx);
-  if (res != HYA_OK) {
-    LOG_ERROR("InitSkeletonFromGLTF failed: %d\n", res);
-    return res;
-  }
-
   return HYA_OK;
 }
 
@@ -340,7 +357,7 @@ HYA_Result InitNode(HYA_Node *node, Context *ctx, struct json_value_s *value) {
         return HYA_ERR_JSON_SCHEMA;
       }
       node->id = id;
-      node->name = ContextAddString(ctx, s->string);
+      node->name = ContextInternString(ctx, s->string);
     } else if (0 == strcmp(obj_elem->name->string, "type")) {
       JSON_VAL_TO_STR(obj_elem->value, s);
       int id = shget(ctx->type_map, s->string);
@@ -413,7 +430,7 @@ static HYA_Result InitTransition(HYA_Transition *transition, Context *ctx,
         shput(ctx->var_map, s->string, var_id);
       }
       transition->var_id = var_id;
-      ContextAddString(ctx, s->string);
+      ContextInternString(ctx, s->string);
     } else if (0 == strcmp(obj_elem->name->string, "dst_state")) {
       JSON_VAL_TO_STR(obj_elem->value, s);
       int state_id = shget(*state_map, s->string);
@@ -443,7 +460,7 @@ static HYA_Result InitState(HYA_State *state, Context *ctx,
         return HYA_ERR_JSON_SCHEMA;
       }
       state->state_idx = id;
-      state->name = ContextAddString(ctx, s->string);
+      state->name = ContextInternString(ctx, s->string);
     } else if (0 == strcmp(obj_elem->name->string, "interp_time")) {
       JSON_VAL_TO_NUM(obj_elem->value, n);
       double d = JSON_NumberToDouble(n);
@@ -543,6 +560,32 @@ HYA_Result InitMotionNode(HYA_MotionNode *node, Context *ctx,
     LOG_ERROR("InitNode failed %d\n", res);
     return res;
   }
+  const char *src = NULL;
+  bool loop = false;
+  float sample_rate = 30.0f;
+  JSON_VAL_TO_OBJ(value, object);
+  JSON_OBJ_FOR_EACH(object, obj_elem) {
+    if (0 == strcmp(obj_elem->name->string, "src")) {
+      JSON_VAL_TO_STR(obj_elem->value, s);
+      src = s->string;
+    }
+    if (0 == strcmp(obj_elem->name->string, "loop")) {
+      JSON_VAL_TO_BOOL(obj_elem->value, b);
+      loop = b;
+    }
+    if (0 == strcmp(obj_elem->name->string, "sample_rate")) {
+      JSON_VAL_TO_NUM(obj_elem->value, n);
+      double d = JSON_NumberToDouble(n);
+      sample_rate = (float)d;
+    }
+  }
+  if (NULL == src) {
+    LOG_ERROR("missing src field\n");
+    return HYA_ERR_JSON_SCHEMA;
+  }
+  node->src = ContextInternString(ctx, src);
+  node->sample_rate = sample_rate;
+  node->loop = loop;
   return HYA_OK;
 }
 

@@ -12,7 +12,8 @@
 
 HYA_Result InitSkeletonFromGLTF(const char *filename, const char *root_joint_id,
                                 HYA_Skeleton *skeleton, Context *ctx);
-HYA_Result InitMotionFromGLTF(const char *filename, HYA_MotionNode *motion,
+HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
+                              HYA_Motion *motion, float sample_rate, bool loop,
                               Context *ctx);
 
 #endif  // #define GLTF_H

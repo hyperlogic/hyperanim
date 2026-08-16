@@ -17,19 +17,22 @@ typedef enum HYA_Result {
   HYA_ERR_JSON_SCHEMA,
   HYA_ERR_UNSUPPORTED,
   HYA_ERR_NOT_FOUND,
+  HYA_ERR_NOT_IMPLEMENTED,
 } HYA_Result;
 
 typedef struct HYA_Vec3 {
   float x, y, z;
 } HYA_Vec3;
 
-typedef struct HYA_Vec4 {
-  float x, y, z, w;
-} HYA_Vec4;
-
 typedef struct HYA_Quat {
   float x, y, z, w;
 } HYA_Quat;
+
+typedef struct HYA_Xform {
+  HYA_Vec3 t;  // translation
+  float s;     // scale
+  HYA_Quat r;  // rotation
+} HYA_Xform;
 
 typedef int HYA_STR_ID;
 
@@ -84,14 +87,21 @@ enum {
   HYA_MOTION_LOOP = (1 << 0),
 };
 
-typedef struct HYA_MotionNode {
-  HYA_Node node;
-  HYA_Vec4 *ts;  // [num_frames, num_joints]
-  HYA_Quat *r;   // [num_frames, num_joints]
-  float sample_rate;
+typedef struct HYA_Motion {
+  HYA_Vec3 *t;  // [num_frames, num_joints]
+  HYA_Quat *r;  // [num_frames, num_joints]
+  float *s;     // [num_frames, num_joints]
   size_t num_joints;
   size_t num_frames;
   unsigned int flags;
+} HYA_Motion;
+
+typedef struct HYA_MotionNode {
+  HYA_Node node;
+  HYA_STR_ID src;
+  float sample_rate;
+  bool loop;
+  HYA_Motion motion;
 } HYA_MotionNode;
 
 typedef struct HYA_BlendNode {
@@ -114,8 +124,7 @@ enum {
 typedef struct HYA_Skeleton {
   HYA_STR_ID *joint_names;
   int *parent_indices;
-  HYA_Vec4 *ts;  // translation (xyz) and uniform scale (w)
-  HYA_Quat *r;   // rotation
+  HYA_Xform *xforms;
   size_t num_joints;
 } HYA_Skeleton;
 

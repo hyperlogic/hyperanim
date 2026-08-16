@@ -22,7 +22,7 @@ typedef struct Context {
   StrToIdPair *var_map;
   int next_var_id;
   StrToIdPair *str_map;
-  int next_str_id;
+  const char **str_arr;
   Arena *arena;
 } Context;
 
@@ -32,6 +32,6 @@ HYA_Result ContextCreate(Context **ctx, size_t arena_size,
 void ContextDeinit(Context *ctx);
 void ContextDestroy(Context *ctx);
 
-HYA_STR_ID ContextAddString(Context *ctx, const char *str);
+HYA_STR_ID ContextInternString(Context *ctx, const char *str);
 
 #endif  // CONTEXT_H
