@@ -107,7 +107,7 @@ HYA_STR_ID ContextInternString(Context *ctx, const char *str) {
   if (str_id < 0) {
     str_id = arrlen(ctx->str_arr);
     shput(ctx->str_map, str, str_id);
-    arrput(ctx->str_arr, str);
+    arrpush(ctx->str_arr, str);
   }
   return str_id;
 }
