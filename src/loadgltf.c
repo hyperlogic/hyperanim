@@ -236,33 +236,34 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
   // check animation count
   if (data->animations_count == 0) {
     LOG_ERROR("no animations found in gltf %s\n", full);
+    cgltf_free(data);
     return HYA_ERR_FAILURE;
   }
   if (data->animations_count != 1) {
     LOG_WARNING("more then one animaiton found in gltf %s, using the first\n",
                 full);
   }
-
-  // build a flat arr of cgltf_node joints
-  cgltf_node **joints = NULL;
-  bool push = false;
   if (skeleton->num_joints == 0) {
     LOG_ERROR("skeleton has zero joints\n");
+    cgltf_free(data);
     return HYA_ERR_FAILURE;
   }
-  const char *root_joint = ctx->str_arr[skeleton->joint_names[0]];
 
   // build node_arr from root_joint
+  const char *root_joint = ctx->str_arr[skeleton->joint_names[0]];
   cgltf_node **node_arr = NULL;
   cgltf_node *root_node = FindNode(data->scene->nodes[0], root_joint);
   if (!root_node) {
     LOG_ERROR("could not find root_joint %s in scene\n", root_joint);
+    cgltf_free(data);
     return HYA_ERR_FAILURE;
   }
   BuildNodeArr(root_node, &node_arr);
   ptrdiff_t num_nodes = arrlen(node_arr);
 
   if (!IsSkeletonSame(node_arr, skeleton, ctx)) {
+    arrfree(node_arr);
+    cgltf_free(data);
     return HYA_ERR_SKELETON_MISMATCH;
   }
 
@@ -271,7 +272,6 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
     cgltf_node *key;
     int32_t value;
   } NodePair;
-
   NodePair *node_to_idx_map = NULL;
   for (ptrdiff_t i = 0; i < arrlen(node_arr); i++) {
     hmput(node_to_idx_map, node_arr[i], i);
@@ -286,7 +286,6 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
     cgltf_animation_sampler *key;
     int32_t value;
   } SamplerPair;
-
   SamplerPair *sampler_to_idx_map = NULL;
   for (size_t i = 0; i < anim->samplers_count; i++) {
     hmput(sampler_to_idx_map, anim->samplers + i, i);
@@ -329,6 +328,10 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
     const cgltf_accessor *in_acc = anim->samplers[i].input;
     if (in_acc->type != cgltf_type_scalar) {
       LOG_ERROR("non scalar input type!\n");
+      hmfree(node_to_idx_map);
+      hmfree(sampler_to_idx_map);
+      arrfree(node_arr);
+      cgltf_free(data);
       return HYA_ERR_UNSUPPORTED;
     }
     num_times += cgltf_accessor_unpack_floats(in_acc, NULL, 0);
@@ -336,6 +339,10 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
     if (out_acc->type != cgltf_type_scalar &&
         out_acc->type != cgltf_type_vec3 && out_acc->type != cgltf_type_vec4) {
       LOG_ERROR("unsupported out type! %d\n", (int)out_acc->type);
+      hmfree(node_to_idx_map);
+      hmfree(sampler_to_idx_map);
+      arrfree(node_arr);
+      cgltf_free(data);
       return HYA_ERR_UNSUPPORTED;
     }
     num_values += cgltf_accessor_unpack_floats(in_acc, NULL, 0);
@@ -353,6 +360,10 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
         in_acc, motion->times + times_offset, num_times - times_offset);
     if (times_offset + times_count > num_times) {
       LOG_ERROR("input accessor overflow!");
+      hmfree(node_to_idx_map);
+      hmfree(sampler_to_idx_map);
+      arrfree(node_arr);
+      cgltf_free(data);
       return HYA_ERR_FAILURE;
     }
 
@@ -361,6 +372,10 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
         in_acc, motion->values + values_offset, num_values - values_offset);
     if (values_offset + values_count > num_values) {
       LOG_ERROR("output accessor overflow!");
+      hmfree(node_to_idx_map);
+      hmfree(sampler_to_idx_map);
+      arrfree(node_arr);
+      cgltf_free(data);
       return HYA_ERR_FAILURE;
     }
 
@@ -381,6 +396,11 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
         hmget(node_to_idx_map, anim->channels[i].target_node);
     motion->channels[i].path = anim->channels[i].target_path;
   }
+
+  hmfree(node_to_idx_map);
+  hmfree(sampler_to_idx_map);
+  arrfree(node_arr);
+  cgltf_free(data);
 
   return HYA_OK;
 }
