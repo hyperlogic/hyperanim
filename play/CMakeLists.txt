@@ -18,4 +18,8 @@ add_executable(${PROJECT_NAME}
   play.c
 )
 
+if(UNIX AND NOT APPLE)
+  target_link_libraries(play PRIVATE m)
+endif()
+
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../src ${CMAKE_CURRENT_SOURCE_DIR}/../vendor)

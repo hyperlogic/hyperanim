@@ -8,6 +8,7 @@
 #define HYPERANIM_H
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 
 typedef enum HYA_Result {
@@ -34,6 +35,21 @@ typedef struct HYA_Xform {
   float s;     // scale
   HYA_Quat r;  // rotation
 } HYA_Xform;
+
+typedef struct HYA_Vec3Key {
+  float time;
+  HYA_Vec3 v;
+} HYA_Vec3Key;
+
+typedef struct HYA_QuatKey {
+  float time;
+  HYA_Quat q;
+} HYA_QuatKey;
+
+typedef struct HYA_FloatKey {
+  float time;
+  float f;
+} HYA_FloatKey;
 
 typedef int HYA_STR_ID;
 
@@ -88,12 +104,27 @@ enum {
   HYA_MOTION_LOOP = (1 << 0),
 };
 
+typedef struct HYA_Channel {
+  int32_t sampler_idx;
+  int32_t joint_idx;
+  uint8_t path;  // 1 = translation, 2 = rotation, 3 = scale
+} HYA_Channel;
+
+typedef struct HYA_Sampler {
+  uint32_t time_idx;
+  uint32_t value_idx;
+  uint32_t num_keys;
+  uint16_t type;   // 1 = scalar, 2 = vec2, 3 = vec3, 4 = vec4
+  uint8_t interp;  // 0 = step, 1 = linear, 2 = cubic_spline
+} HYA_Sampler;
+
 typedef struct HYA_Motion {
-  HYA_Vec3 *t;  // [num_frames, num_joints]
-  HYA_Quat *r;  // [num_frames, num_joints]
-  float *s;     // [num_frames, num_joints]
-  size_t num_joints;
-  size_t num_frames;
+  float *times;
+  float *values;
+  HYA_Sampler *samplers;
+  HYA_Channel *channels;
+  size_t num_samplers;
+  size_t num_channels;
   unsigned int flags;
 } HYA_Motion;
 

@@ -304,7 +304,8 @@ HYA_Result InitGraph(HYA_Graph *graph, Context *ctx,
   // create ptrs to each string in the str_map
   ptrdiff_t n = arrlen(ctx->str_arr);
   graph->num_str_ptrs = n;
-  char **str_ptrs = (char **)ArenaAllocFrom(ctx->arena, sizeof(char *) * n);
+  const char **str_ptrs =
+      (const char **)ArenaAllocFrom(ctx->arena, sizeof(char *) * n);
   if (!str_ptrs) {
     LOG_ERROR("str_ptrs alloc failed\n");
     return HYA_ERR_OUT_OF_MEMORY;

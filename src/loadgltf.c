@@ -266,9 +266,33 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
     return HYA_ERR_SKELETON_MISMATCH;
   }
 
+  // build a map from cgltf_node* to an index.
+  typedef struct NodePair {
+    cgltf_node *key;
+    int32_t value;
+  } NodePair;
+
+  NodePair *node_to_idx_map = NULL;
+  for (ptrdiff_t i = 0; i < arrlen(node_arr); i++) {
+    hmput(node_to_idx_map, node_arr[i], i);
+  }
+
+  // pick the first animation
   const cgltf_animation *anim = &data->animations[0];
   assert(anim);
 
+  // build a map from cgltf_sampler* to an index.
+  typedef struct SamplerPair {
+    cgltf_animation_sampler *key;
+    int32_t value;
+  } SamplerPair;
+
+  SamplerPair *sampler_to_idx_map = NULL;
+  for (size_t i = 0; i < anim->samplers_count; i++) {
+    hmput(sampler_to_idx_map, anim->samplers + i, i);
+  }
+
+  /*
   printf("AJT: name = %s\n", anim->name);
   printf("AJT: samplers_count = %zu\n", anim->samplers_count);
   for (size_t i = 0; i < anim->samplers_count; i++) {
@@ -288,6 +312,75 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
     PrintChannel(&anim->channels[i]);
   }
   printf("AJT: extensions_count = %zu\n", anim->extensions_count);
+  */
 
-  return HYA_ERR_NOT_IMPLEMENTED;
+  // alloc samplers & channels
+  motion->num_samplers = anim->samplers_count;
+  motion->samplers =
+      ArenaAllocFrom(ctx->arena, sizeof(HYA_Sampler) * motion->num_samplers);
+  motion->num_channels = anim->channels_count;
+  motion->channels =
+      ArenaAllocFrom(ctx->arena, sizeof(HYA_Channel) * motion->num_samplers);
+
+  // first pass: figure out how many times and values to allocate.
+  size_t num_times = 0;
+  size_t num_values = 0;
+  for (size_t i = 0; i < anim->samplers_count; i++) {
+    const cgltf_accessor *in_acc = anim->samplers[i].input;
+    if (in_acc->type != cgltf_type_scalar) {
+      LOG_ERROR("non scalar input type!\n");
+      return HYA_ERR_UNSUPPORTED;
+    }
+    num_times += cgltf_accessor_unpack_floats(in_acc, NULL, 0);
+    const cgltf_accessor *out_acc = anim->samplers[i].output;
+    if (out_acc->type != cgltf_type_scalar &&
+        out_acc->type != cgltf_type_vec3 && out_acc->type != cgltf_type_vec4) {
+      LOG_ERROR("unsupported out type! %d\n", (int)out_acc->type);
+      return HYA_ERR_UNSUPPORTED;
+    }
+    num_values += cgltf_accessor_unpack_floats(in_acc, NULL, 0);
+  }
+
+  motion->times = ArenaAllocFrom(ctx->arena, sizeof(float) * num_times);
+  motion->values = ArenaAllocFrom(ctx->arena, sizeof(float) * num_values);
+
+  // second pass: copy/unpack times and values.
+  size_t times_offset = 0;
+  size_t values_offset = 0;
+  for (size_t i = 0; i < anim->samplers_count; i++) {
+    const cgltf_accessor *in_acc = anim->samplers[i].input;
+    size_t times_count = cgltf_accessor_unpack_floats(
+        in_acc, motion->times + times_offset, num_times - times_offset);
+    if (times_offset + times_count > num_times) {
+      LOG_ERROR("input accessor overflow!");
+      return HYA_ERR_FAILURE;
+    }
+
+    const cgltf_accessor *out_acc = anim->samplers[i].output;
+    size_t values_count = cgltf_accessor_unpack_floats(
+        in_acc, motion->values + values_offset, num_values - values_offset);
+    if (values_offset + values_count > num_values) {
+      LOG_ERROR("output accessor overflow!");
+      return HYA_ERR_FAILURE;
+    }
+
+    motion->samplers[i].time_idx = times_offset;
+    motion->samplers[i].value_idx = values_offset;
+    motion->samplers[i].num_keys = times_count;
+    motion->samplers[i].type = out_acc->type;
+    motion->samplers[i].interp = anim->samplers[i].interpolation;
+
+    times_offset += times_count;
+    values_offset += values_count;
+  }
+
+  for (size_t i = 0; i < anim->channels_count; i++) {
+    motion->channels[i].sampler_idx =
+        hmget(sampler_to_idx_map, anim->channels[i].sampler);
+    motion->channels[i].joint_idx =
+        hmget(node_to_idx_map, anim->channels[i].target_node);
+    motion->channels[i].path = anim->channels[i].target_path;
+  }
+
+  return HYA_OK;
 }
