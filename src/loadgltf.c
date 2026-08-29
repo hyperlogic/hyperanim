@@ -108,6 +108,7 @@ static void PrintChannel(const cgltf_animation_channel *channel) {
 
 HYA_Result InitSkeletonFromGLTF(const char *filename, const char *root_joint,
                                 HYA_Skeleton *skeleton, Context *ctx) {
+  HYA_Result res = HYA_ERR_FAILURE;
   cgltf_options options = {0};
   cgltf_data *data = NULL;
 
@@ -116,14 +117,26 @@ HYA_Result InitSkeletonFromGLTF(const char *filename, const char *root_joint,
   int n = snprintf(full, sizeof full, "%s/%s", ctx->dirname, filename);
   if (n < 0 || (size_t)n >= sizeof full) {
     LOG_ERROR("path too long: %s/%s\n", ctx->dirname, filename);
-    return HYA_ERR_FAILURE;
+    goto cleanup_0;
   }
 
   // load the actual gltf
   cgltf_result result = cgltf_parse_file(&options, full, &data);
   if (result != cgltf_result_success) {
     LOG_ERROR("gltf_parse_file failed!\n");
-    return HYA_ERR_FAILURE;
+    goto cleanup_0;
+  }
+  if (!data->nodes || data->nodes_count == 0) {
+    LOG_ERROR("gltf has no nodes!\n");
+    goto cleanup_1;
+  }
+  if (!data->scene) {
+    LOG_ERROR("gltf has no scene!\n");
+    goto cleanup_1;
+  }
+  if (data->scene->nodes_count == 0) {
+    LOG_ERROR("gltf scene has no nodes!\n");
+    goto cleanup_1;
   }
 
   // build node_arr from root_joint
@@ -131,7 +144,7 @@ HYA_Result InitSkeletonFromGLTF(const char *filename, const char *root_joint,
   cgltf_node *root_node = FindNode(data->scene->nodes[0], root_joint);
   if (!root_node) {
     LOG_ERROR("could not find root_joint %s in scene\n", root_joint);
-    return HYA_ERR_FAILURE;
+    goto cleanup_1;
   }
   BuildNodeArr(root_node, &node_arr);
   ptrdiff_t num_nodes = arrlen(node_arr);
@@ -140,11 +153,25 @@ HYA_Result InitSkeletonFromGLTF(const char *filename, const char *root_joint,
   skeleton->num_joints = num_nodes;
   skeleton->joint_names = (HYA_STR_ID *)ArenaAllocFromAligned(
       ctx->arena, sizeof(HYA_STR_ID) * num_nodes, sizeof(HYA_STR_ID));
+  if (!skeleton->joint_names) {
+    LOG_ERROR("out of memory! when allocating joint_names, %zu bytes!\n",
+              sizeof(HYA_STR_ID) * num_nodes);
+    goto cleanup_2;
+  }
   skeleton->parent_indices = (int *)ArenaAllocFromAligned(
       ctx->arena, sizeof(int) * num_nodes, sizeof(int));
+  if (!skeleton->parent_indices) {
+    LOG_ERROR("out of memory! when allocating parent_indices, %zu bytes!\n",
+              sizeof(int) * num_nodes);
+    goto cleanup_2;
+  }
   skeleton->xforms = (HYA_Xform *)ArenaAllocFromAligned(
       ctx->arena, sizeof(HYA_Xform) * num_nodes, sizeof(float));
-
+  if (!skeleton->xforms) {
+    LOG_ERROR("out of memory! when allocating xforms, %zu bytes!\n",
+              sizeof(HYA_Xform) * num_nodes);
+    goto cleanup_2;
+  }
   // joint_map will be used to determine parent id.
   StrToIdPair *joint_map = NULL;
   shdefault(joint_map, -1);
@@ -156,7 +183,7 @@ HYA_Result InitSkeletonFromGLTF(const char *filename, const char *root_joint,
     int id = shget(joint_map, node->name);
     if (id >= 0) {
       LOG_ERROR("duplicate node name %s\n", node->name);
-      return HYA_ERR_FAILURE;
+      goto cleanup_3;
     }
     shput(joint_map, node->name, i);
     if (node->has_matrix) {
@@ -203,13 +230,18 @@ HYA_Result InitSkeletonFromGLTF(const char *filename, const char *root_joint,
       skeleton->parent_indices[i] = -1;
     }
   }
+  res = HYA_OK;
 
   // cleanup
+cleanup_3:
   shfree(joint_map);
+cleanup_2:
   arrfree(node_arr);
+cleanup_1:
   cgltf_free(data);
+cleanup_0:
 
-  return HYA_OK;
+  return res;
 }
 
 HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
@@ -217,27 +249,34 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
                               Context *ctx) {
   cgltf_options options = {0};
   cgltf_data *data = NULL;
+  HYA_Result res = HYA_ERR_FAILURE;
 
   char full[1024];
   int n = snprintf(full, sizeof full, "%s/%s", ctx->dirname, filename);
   if (n < 0 || (size_t)n >= sizeof full) {
     /* truncated (or encoding error) — don't call Load with a mangled path */
     LOG_ERROR("path too long: %s/%s\n", ctx->dirname, filename);
-    return HYA_ERR_FAILURE;
+    goto cleanup_0;
   }
 
   // load the gltf
   cgltf_result result = cgltf_parse_file(&options, full, &data);
   if (result != cgltf_result_success) {
     LOG_ERROR("gltf_parse_file failed!\n");
-    return HYA_ERR_FAILURE;
+    goto cleanup_0;
+  }
+
+  // load all the buffers which command
+  result = cgltf_load_buffers(&options, data, full);
+  if (result != cgltf_result_success) {
+    LOG_ERROR("gltf_load_buffers failed!\n");
+    goto cleanup_1;
   }
 
   // check animation count
   if (data->animations_count == 0) {
     LOG_ERROR("no animations found in gltf %s\n", full);
-    cgltf_free(data);
-    return HYA_ERR_FAILURE;
+    goto cleanup_1;
   }
   if (data->animations_count != 1) {
     LOG_WARNING("more then one animaiton found in gltf %s, using the first\n",
@@ -245,8 +284,19 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
   }
   if (skeleton->num_joints == 0) {
     LOG_ERROR("skeleton has zero joints\n");
-    cgltf_free(data);
-    return HYA_ERR_FAILURE;
+    goto cleanup_1;
+  }
+  if (!data->nodes || data->nodes_count == 0) {
+    LOG_ERROR("gltf has no nodes!\n");
+    goto cleanup_1;
+  }
+  if (!data->scene) {
+    LOG_ERROR("gltf has no scene!\n");
+    goto cleanup_1;
+  }
+  if (data->scene->nodes_count == 0) {
+    LOG_ERROR("gltf scene has no nodes!\n");
+    goto cleanup_1;
   }
 
   // build node_arr from root_joint
@@ -255,16 +305,14 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
   cgltf_node *root_node = FindNode(data->scene->nodes[0], root_joint);
   if (!root_node) {
     LOG_ERROR("could not find root_joint %s in scene\n", root_joint);
-    cgltf_free(data);
-    return HYA_ERR_FAILURE;
+    goto cleanup_1;
   }
   BuildNodeArr(root_node, &node_arr);
   ptrdiff_t num_nodes = arrlen(node_arr);
 
   if (!IsSkeletonSame(node_arr, skeleton, ctx)) {
-    arrfree(node_arr);
-    cgltf_free(data);
-    return HYA_ERR_SKELETON_MISMATCH;
+    res = HYA_ERR_SKELETON_MISMATCH;
+    goto cleanup_2;
   }
 
   // build a map from cgltf_node* to an index.
@@ -317,9 +365,21 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
   motion->num_samplers = anim->samplers_count;
   motion->samplers =
       ArenaAllocFrom(ctx->arena, sizeof(HYA_Sampler) * motion->num_samplers);
+  if (!motion->samplers) {
+    LOG_ERROR("Out of memory! allocating samplers, size %zu bytes\n",
+              sizeof(HYA_Sampler) * motion->num_samplers);
+    res = HYA_ERR_OUT_OF_MEMORY;
+    goto cleanup_3;
+  }
   motion->num_channels = anim->channels_count;
   motion->channels =
-      ArenaAllocFrom(ctx->arena, sizeof(HYA_Channel) * motion->num_samplers);
+      ArenaAllocFrom(ctx->arena, sizeof(HYA_Channel) * motion->num_channels);
+  if (!motion->channels) {
+    LOG_ERROR("Out of memory! allocating channels, size %zu bytes\n",
+              sizeof(HYA_Channel) * motion->num_channels);
+    res = HYA_ERR_OUT_OF_MEMORY;
+    goto cleanup_3;
+  }
 
   // first pass: figure out how many times and values to allocate.
   size_t num_times = 0;
@@ -328,28 +388,34 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
     const cgltf_accessor *in_acc = anim->samplers[i].input;
     if (in_acc->type != cgltf_type_scalar) {
       LOG_ERROR("non scalar input type!\n");
-      hmfree(node_to_idx_map);
-      hmfree(sampler_to_idx_map);
-      arrfree(node_arr);
-      cgltf_free(data);
-      return HYA_ERR_UNSUPPORTED;
+      res = HYA_ERR_UNSUPPORTED;
+      goto cleanup_3;
     }
     num_times += cgltf_accessor_unpack_floats(in_acc, NULL, 0);
     const cgltf_accessor *out_acc = anim->samplers[i].output;
     if (out_acc->type != cgltf_type_scalar &&
         out_acc->type != cgltf_type_vec3 && out_acc->type != cgltf_type_vec4) {
       LOG_ERROR("unsupported out type! %d\n", (int)out_acc->type);
-      hmfree(node_to_idx_map);
-      hmfree(sampler_to_idx_map);
-      arrfree(node_arr);
-      cgltf_free(data);
-      return HYA_ERR_UNSUPPORTED;
+      res = HYA_ERR_UNSUPPORTED;
+      goto cleanup_3;
     }
-    num_values += cgltf_accessor_unpack_floats(in_acc, NULL, 0);
+    num_values += cgltf_accessor_unpack_floats(out_acc, NULL, 0);
   }
 
   motion->times = ArenaAllocFrom(ctx->arena, sizeof(float) * num_times);
+  if (!motion->times) {
+    LOG_ERROR("Out of memory! allocating times size %zu bytes\n",
+              sizeof(float) * num_times);
+    res = HYA_ERR_OUT_OF_MEMORY;
+    goto cleanup_3;
+  }
   motion->values = ArenaAllocFrom(ctx->arena, sizeof(float) * num_values);
+  if (!motion->values) {
+    LOG_ERROR("Out of memory! allocating values size %zu bytes\n",
+              sizeof(float) * num_values);
+    res = HYA_ERR_OUT_OF_MEMORY;
+    goto cleanup_3;
+  }
 
   // second pass: copy/unpack times and values.
   size_t times_offset = 0;
@@ -358,27 +424,9 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
     const cgltf_accessor *in_acc = anim->samplers[i].input;
     size_t times_count = cgltf_accessor_unpack_floats(
         in_acc, motion->times + times_offset, num_times - times_offset);
-    if (times_offset + times_count > num_times) {
-      LOG_ERROR("input accessor overflow!");
-      hmfree(node_to_idx_map);
-      hmfree(sampler_to_idx_map);
-      arrfree(node_arr);
-      cgltf_free(data);
-      return HYA_ERR_FAILURE;
-    }
-
     const cgltf_accessor *out_acc = anim->samplers[i].output;
     size_t values_count = cgltf_accessor_unpack_floats(
-        in_acc, motion->values + values_offset, num_values - values_offset);
-    if (values_offset + values_count > num_values) {
-      LOG_ERROR("output accessor overflow!");
-      hmfree(node_to_idx_map);
-      hmfree(sampler_to_idx_map);
-      arrfree(node_arr);
-      cgltf_free(data);
-      return HYA_ERR_FAILURE;
-    }
-
+        out_acc, motion->values + values_offset, num_values - values_offset);
     motion->samplers[i].time_idx = times_offset;
     motion->samplers[i].value_idx = values_offset;
     motion->samplers[i].num_keys = times_count;
@@ -391,16 +439,29 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
 
   for (size_t i = 0; i < anim->channels_count; i++) {
     motion->channels[i].sampler_idx =
-        hmget(sampler_to_idx_map, anim->channels[i].sampler);
+        hmgeti(sampler_to_idx_map, anim->channels[i].sampler);
+    if (motion->channels[i].sampler_idx < 0) {
+      LOG_ERROR("could not find sampler_idx! in channel %zu\n", i);
+      goto cleanup_3;
+    }
     motion->channels[i].joint_idx =
-        hmget(node_to_idx_map, anim->channels[i].target_node);
+        hmgeti(node_to_idx_map, anim->channels[i].target_node);
+
+    if (motion->channels[i].joint_idx < 0) {
+      LOG_ERROR("could not find joint_idx! in channel %zu\n", i);
+      goto cleanup_3;
+    }
     motion->channels[i].path = anim->channels[i].target_path;
   }
+  res = HYA_OK;
 
+cleanup_3:
   hmfree(node_to_idx_map);
   hmfree(sampler_to_idx_map);
+cleanup_2:
   arrfree(node_arr);
+cleanup_1:
   cgltf_free(data);
-
-  return HYA_OK;
+cleanup_0:
+  return res;
 }
