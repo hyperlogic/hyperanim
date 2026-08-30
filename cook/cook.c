@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "arena.h"
 #include "hyperanim.h"
@@ -14,11 +15,8 @@
 #define STB_DS_IMPLEMENTATION
 #include "stb_ds.h"
 
-void PrintUsage() {
-  printf("play\n");
-  printf("\n");
-  printf("USAGE:\n");
-  printf("  play graph.json\n");
+void PrintUsage(const char *prog) {
+  fprintf(stderr, "usage: %s -i <input.json> -o <output.hya>\n", prog);
 }
 
 char *ReadFile(const char *filename, size_t *out_size) {
@@ -63,17 +61,34 @@ char *ReadFile(const char *filename, size_t *out_size) {
   return buf;
 }
 
-int main(int argc, const char *argv[]) {
-  if (argc != 2) {
-    printf("ERROR: Expected file.json argument\n");
-    PrintUsage();
-    return 1;
+int main(int argc, char **argv) {
+  const char *input = NULL;
+  const char *output = NULL;
+  int c;
+  while ((c = getopt(argc, argv, "i:o:")) != -1) {
+    switch (c) {
+      case 'i':
+        input = optarg;
+        break;
+      case 'o':
+        output = optarg;
+        break;
+      default:
+        PrintUsage(argv[0]);
+        return 2;
+    }
+  }
+
+  if (!input || !output) {
+    fprintf(stderr, "%s: both -i and -o are required\n", argv[0]);
+    PrintUsage(argv[0]);
+    return 2;
   }
 
   size_t buf_size = 0;
-  char *buf = ReadFile(argv[1], &buf_size);
+  char *buf = ReadFile(input, &buf_size);
   if (!buf) {
-    printf("ERROR: loading %s\n", argv[1]);
+    printf("ERROR: loading %s\n", input);
     return 1;
   }
 
@@ -83,7 +98,7 @@ int main(int argc, const char *argv[]) {
       NULL, NULL, &parse_result);
   free(buf);
   if (!root) {
-    printf("ERROR: parsing %s\n", argv[1]);
+    printf("ERROR: parsing %s\n", input);
     printf("JSON parse error %zu at line %zu, column %zu (byte offset %zu)\n",
            parse_result.error, parse_result.error_line_no,
            parse_result.error_row_no, parse_result.error_offset);
@@ -92,7 +107,7 @@ int main(int argc, const char *argv[]) {
 
   Context ctx;
   const size_t ARENA_SIZE = (size_t)10 * 1024 * 1024;
-  HYA_Result res = ContextInit(&ctx, ARENA_SIZE, argv[1]);
+  HYA_Result res = ContextInit(&ctx, ARENA_SIZE, input);
   if (res != HYA_OK) {
     free(root);
     printf("ERROR: ContextInit failed: %d\n", res);

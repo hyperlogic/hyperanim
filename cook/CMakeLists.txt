@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
-set(PROJECT_NAME play)
+set(PROJECT_NAME cook)
 project(${PROJECT_NAME} LANGUAGES C)
 set(CMAKE_C_STANDARD 11)
 
@@ -15,11 +15,11 @@ add_executable(${PROJECT_NAME}
   ../src/loadjson.c
   ../src/loadgltf.c
   ../src/mathutil.c
-  play.c
+  cook.c
 )
 
 if(UNIX AND NOT APPLE)
-  target_link_libraries(play PRIVATE m)
+  target_link_libraries(${PROJECT_NAME} PRIVATE m)
 endif()
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../src ${CMAKE_CURRENT_SOURCE_DIR}/../vendor)
