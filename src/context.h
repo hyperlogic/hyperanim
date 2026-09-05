@@ -4,8 +4,13 @@
 #include "arena.h"
 #include "hyperanim.h"
 
+typedef struct Symbol {
+  const char *key;
+} Symbol;
+
+// TODO: REPLACE with Symbol.
 typedef struct StrToIdPair {
-  char *key;
+  const char *key;
   int value;
 } StrToIdPair;
 
@@ -19,7 +24,7 @@ typedef enum HYA_MemCategory {
 } HYA_MemCategory;
 
 typedef struct RelocInfo {
-  uint8_t *ptr;
+  void *addr;
   ptrdiff_t offset;
   size_t size;
   HYA_MemCategory cat;
@@ -32,13 +37,10 @@ typedef struct Context {
   char dirname[CONTEXT_PATH_SIZE];
   char basename[CONTEXT_PATH_SIZE];
   HYA_Graph *graph;
-  StrToIdPair *node_map;
-  int next_node_id;
-  StrToIdPair *type_map;
-  StrToIdPair *var_map;
-  int next_var_id;
-  StrToIdPair *str_map;
-  const char **str_arr;
+  Symbol *node_map;
+  Symbol *type_map;
+  Symbol *var_map;
+  Symbol *str_map;
   Arena *arena;
   RelocInfo *reloc_arr;
 } Context;
@@ -52,10 +54,12 @@ void ContextDestroy(Context *ctx);
 HYA_STR_ID ContextInternString(Context *ctx, const char *str);
 
 // Specific alignment: for minimal padding
-uint8_t *ContextAllocFromAligned(Context *ctx, HYA_MemCategory cat, size_t size,
-                                 size_t align);
+uint8_t *ContextAllocFromAligned(Context *ctx, HYA_MemCategory cat, void *addr,
+                                 size_t size, size_t align);
 
 // Default alignment: safe for any built-in type.
-uint8_t *ContextAllocFrom(Context *ctx, HYA_MemCategory cat, size_t size);
+uint8_t *ContextAllocFrom(Context *ctx, HYA_MemCategory cat, void *addr,
+                          size_t size);
+void ContextRelocAlias(Context *ctx, void *addr, void *ptr);
 
 #endif  // CONTEXT_H

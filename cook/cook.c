@@ -61,8 +61,27 @@ static char *ReadFile(const char *filename, size_t *out_size) {
   return buf;
 }
 
-static HYA_Result CookGraph(HYA_Graph *graph, const char *filename) {
+/*
+HYAC
+num_offsets  size_t
+offset 0
+offset 1
+...
+offset n-1
+HYA_Graph
+*/
+
+static HYA_Result CookGraph(Context *ctx, HYA_Graph *graph,
+                            const char *filename) {
+  const char *categories[HYA_MEM_COUNT] = {"Node", "String", "Var", "Skeleton",
+                                           "Motion"};
+
   // update all the ptrs to be relative to the graph base addr.
+  for (ptrdiff_t i = 0; i < arrlen(ctx->reloc_arr); i++) {
+    const RelocInfo *r = ctx->reloc_arr + i;
+    printf("reloc[%td] %s: addr = %p, offset = %td, size = %zu\n", i,
+           categories[r->cat], r->addr, r->offset, r->size);
+  }
   return HYA_ERR_FAILURE;
 }
 
@@ -122,22 +141,23 @@ int main(int argc, char **argv) {
     goto cleanup_1;
   }
 
-#define X(Name, name, NAME) shput(ctx.type_map, #name, HYA_NODE_TYPE_##NAME);
+#define X(Name, name, NAME)                            \
+  assert(shlen(ctx.type_map) == HYA_NODE_TYPE_##NAME); \
+  shputs(ctx.type_map, (Symbol) { #name });
+
   HYA_NODE_NAME_LIST
 #undef X
 
   HYA_Graph *graph = NULL;
   assert(ctx.arena->offset == 0);  // graph must be the first allocation
-  graph = (HYA_Graph *)ContextAllocFrom(&ctx, HYA_MEM_NODE, sizeof(HYA_Graph));
+  graph = (HYA_Graph *)ContextAllocFrom(&ctx, HYA_MEM_NODE, NULL,
+                                        sizeof(HYA_Graph));
   if (!graph) {
     printf("ERROR: Could not allocate graph of size %zu\n", sizeof(HYA_Graph));
     res = HYA_ERR_OUT_OF_MEMORY;
-    goto cleanup_1;
+    goto cleanup_2;
   }
 
-  // NOTE: the strings in the ctx stb_ds maps
-  // point directly to data from the json root json_value_s
-  // so the ctx shouldn't outlive the root.
   res = InitGraph(graph, &ctx, root);
   if (res != HYA_OK) {
     printf("ERROR: BuildGraph failed: %d\n", res);
@@ -162,9 +182,9 @@ int main(int argc, char **argv) {
     printf("    %s: %zu bytes\n", categories[i], counts[i]);
   }
   printf("    padding: %zu bytes\n", ctx.arena->offset - total);
-  // PrintGraph(graph);
+  PrintGraph(graph);
 
-  res = CookGraph(graph, output);
+  res = CookGraph(&ctx, graph, output);
   if (res != HYA_OK) {
     printf("ERROR: CookGraph failure: %d\n", res);
     goto cleanup_2;
@@ -176,5 +196,5 @@ cleanup_1:
   free(root);
 cleanup_0:
 
-  return 0;
+  return res;
 }

@@ -62,9 +62,9 @@ static bool IsSkeletonSame(cgltf_node **node_arr, const HYA_Skeleton *skeleton,
   }
   for (ptrdiff_t i = 0; i < arrlen(node_arr); i++) {
     if (0 !=
-        strcmp(ctx->str_arr[skeleton->joint_names[i]], node_arr[i]->name)) {
+        strcmp(ctx->str_map[skeleton->joint_names[i]].key, node_arr[i]->name)) {
       printf("%td idx=%d, %s != %s\n", i, skeleton->joint_names[i],
-             ctx->str_arr[skeleton->joint_names[i]], node_arr[i]->name);
+             ctx->str_map[skeleton->joint_names[i]].key, node_arr[i]->name);
       return false;
     }
   }
@@ -152,22 +152,23 @@ HYA_Result InitSkeletonFromGLTF(const char *filename, const char *root_joint,
   // allocate skeleton arrays
   skeleton->num_joints = num_nodes;
   skeleton->joint_names = (HYA_STR_ID *)ContextAllocFromAligned(
-      ctx, HYA_MEM_SKELETON, sizeof(HYA_STR_ID) * num_nodes,
-      _Alignof(HYA_STR_ID));
+      ctx, HYA_MEM_SKELETON, &skeleton->joint_names,
+      sizeof(HYA_STR_ID) * num_nodes, _Alignof(HYA_STR_ID));
   if (!skeleton->joint_names) {
     LOG_ERROR("out of memory! when allocating joint_names, %zu bytes!\n",
               sizeof(HYA_STR_ID) * num_nodes);
     goto cleanup_2;
   }
   skeleton->parent_indices = (int *)ContextAllocFromAligned(
-      ctx, HYA_MEM_SKELETON, sizeof(int) * num_nodes, _Alignof(int));
+      ctx, HYA_MEM_SKELETON, &skeleton->parent_indices, sizeof(int) * num_nodes,
+      _Alignof(int));
   if (!skeleton->parent_indices) {
     LOG_ERROR("out of memory! when allocating parent_indices, %zu bytes!\n",
               sizeof(int) * num_nodes);
     goto cleanup_2;
   }
   skeleton->xforms = (HYA_Xform *)ContextAllocFromAligned(
-      ctx, HYA_MEM_SKELETON, sizeof(HYA_Xform) * num_nodes,
+      ctx, HYA_MEM_SKELETON, &skeleton->xforms, sizeof(HYA_Xform) * num_nodes,
       _Alignof(HYA_Xform));
   if (!skeleton->xforms) {
     LOG_ERROR("out of memory! when allocating xforms, %zu bytes!\n",
@@ -302,7 +303,7 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
   }
 
   // build node_arr from root_joint
-  const char *root_joint = ctx->str_arr[skeleton->joint_names[0]];
+  const char *root_joint = ctx->str_map[skeleton->joint_names[0]].key;
   cgltf_node **node_arr = NULL;
   cgltf_node *root_node = FindNode(data->scene->nodes[0], root_joint);
   if (!root_node) {
@@ -366,8 +367,8 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
   // alloc samplers & channels
   motion->num_samplers = anim->samplers_count;
   motion->samplers = (HYA_Sampler *)ContextAllocFromAligned(
-      ctx, HYA_MEM_MOTION, sizeof(HYA_Sampler) * motion->num_samplers,
-      _Alignof(HYA_Sampler));
+      ctx, HYA_MEM_MOTION, &motion->samplers,
+      sizeof(HYA_Sampler) * motion->num_samplers, _Alignof(HYA_Sampler));
   if (!motion->samplers) {
     LOG_ERROR("Out of memory! allocating samplers, size %zu bytes\n",
               sizeof(HYA_Sampler) * motion->num_samplers);
@@ -376,8 +377,8 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
   }
   motion->num_channels = anim->channels_count;
   motion->channels = (HYA_Channel *)ContextAllocFromAligned(
-      ctx, HYA_MEM_MOTION, sizeof(HYA_Channel) * motion->num_channels,
-      _Alignof(HYA_Channel));
+      ctx, HYA_MEM_MOTION, &motion->channels,
+      sizeof(HYA_Channel) * motion->num_channels, _Alignof(HYA_Channel));
   if (!motion->channels) {
     LOG_ERROR("Out of memory! allocating channels, size %zu bytes\n",
               sizeof(HYA_Channel) * motion->num_channels);
@@ -407,7 +408,8 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
   }
 
   motion->times = (float *)ContextAllocFromAligned(
-      ctx, HYA_MEM_MOTION, sizeof(float) * num_times, _Alignof(float));
+      ctx, HYA_MEM_MOTION, &motion->times, sizeof(float) * num_times,
+      _Alignof(float));
   if (!motion->times) {
     LOG_ERROR("Out of memory! allocating times size %zu bytes\n",
               sizeof(float) * num_times);
@@ -415,7 +417,8 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
     goto cleanup_3;
   }
   motion->values = (float *)ContextAllocFromAligned(
-      ctx, HYA_MEM_MOTION, sizeof(float) * num_values, _Alignof(float));
+      ctx, HYA_MEM_MOTION, &motion->values, sizeof(float) * num_values,
+      _Alignof(float));
   if (!motion->values) {
     LOG_ERROR("Out of memory! allocating values size %zu bytes\n",
               sizeof(float) * num_values);

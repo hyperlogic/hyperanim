@@ -151,13 +151,13 @@ static HYA_Result BuildNodes(struct json_value_s *value, HYA_Graph *graph,
       if (0 == strcmp(obj_elem->name->string, "name")) {
         JSON_VAL_TO_STR(obj_elem->value, s);
         // node names must be unique.
-        int id = shget(ctx->node_map, s->string);
+        int id = shgeti(ctx->node_map, s->string);
         if (id >= 0) {
           LOG_JSON_VAL_ERR(obj_elem->value, "duplicate node name %s\n",
                            s->string);
           return HYA_ERR_JSON_SCHEMA;
         }
-        shput(ctx->node_map, s->string, ctx->next_node_id++);
+        shputs(ctx->node_map, (Symbol){s->string});
         found_name = true;
       }
     }
@@ -176,7 +176,7 @@ static HYA_Result BuildNodes(struct json_value_s *value, HYA_Graph *graph,
 #define X(Name, name, NAME)                                            \
   if (graph->num_##name##_nodes > 0) {                                 \
     graph->name##_nodes = (HYA_##Name##Node *)ContextAllocFromAligned( \
-        ctx, HYA_MEM_NODE,                                             \
+        ctx, HYA_MEM_NODE, &graph->name##_nodes,                       \
         sizeof(HYA_##Name##Node) * graph->num_##name##_nodes,          \
         _Alignof(HYA_##Name##Node));                                   \
     if (!graph->name##_nodes) {                                        \
@@ -261,27 +261,28 @@ HYA_Result InitGraph(HYA_Graph *graph, Context *ctx,
     LOG_JSON_VAL_ERR(value, "missing root_node key\n");
     return HYA_ERR_JSON_SCHEMA;
   }
-  graph->root = shget(ctx->node_map, root_node);
+  graph->root = shgeti(ctx->node_map, root_node);
   if (graph->root < 0) {
     LOG_ERROR("could not find root node %s\n", root_node);
     return HYA_ERR_JSON_SCHEMA;
   }
 
   // create ptrs to each node with node id as in index.
-  graph->num_node_ptrs = (size_t)ctx->next_node_id;
+  graph->num_node_ptrs = shlen(ctx->node_map);
   graph->node_ptrs = (HYA_Node **)ContextAllocFromAligned(
-      ctx, HYA_MEM_NODE, sizeof(HYA_Node *) * graph->num_node_ptrs,
-      _Alignof(HYA_Node *));
+      ctx, HYA_MEM_NODE, &graph->node_ptrs,
+      sizeof(HYA_Node *) * graph->num_node_ptrs, _Alignof(HYA_Node *));
   if (!graph->node_ptrs) {
     LOG_ERROR("node_ptrs alloc failed\n");
     return HYA_ERR_OUT_OF_MEMORY;
   }
 
-#define X(Name, name, NAME)                                        \
-  for (size_t i = 0; i < graph->num_##name##_nodes; i++) {         \
-    HYA_##Name##Node *node = &graph->name##_nodes[i]; /* NOLINT */ \
-    assert(node && node->node.id >= 0);                            \
-    graph->node_ptrs[node->node.id] = (HYA_Node *)node;            \
+#define X(Name, name, NAME)                                         \
+  for (size_t i = 0; i < graph->num_##name##_nodes; i++) {          \
+    HYA_##Name##Node *node = &graph->name##_nodes[i]; /* NOLINT */  \
+    assert(node && node->node.id >= 0);                             \
+    graph->node_ptrs[node->node.id] = (HYA_Node *)node;             \
+    ContextRelocAlias(ctx, &graph->node_ptrs[node->node.id], node); \
   }
   HYA_NODE_NAME_LIST
 #undef X
@@ -296,7 +297,7 @@ HYA_Result InitGraph(HYA_Graph *graph, Context *ctx,
   // now load each gltf node.
   for (size_t i = 0; i < graph->num_motion_nodes; i++) {
     HYA_MotionNode *node = &graph->motion_nodes[i];
-    const char *src = ctx->str_arr[node->src];
+    const char *src = ctx->str_map[node->src].key;
     res = InitMotionFromGLTF(src, &graph->tpose, &node->motion,
                              node->sample_rate, node->loop, ctx);
     if (HYA_OK != res) {
@@ -306,23 +307,31 @@ HYA_Result InitGraph(HYA_Graph *graph, Context *ctx,
   }
 
   // create ptrs to each string in the str_map
-  ptrdiff_t n = arrlen(ctx->str_arr);
+  ptrdiff_t n = shlen(ctx->str_map);
   graph->num_str_ptrs = n;
-  const char **str_ptrs = (const char **)ContextAllocFromAligned(
-      ctx, HYA_MEM_STRING, sizeof(char *) * n, _Alignof(char *));
-  if (!str_ptrs) {
+  graph->str_ptrs = (const char **)ContextAllocFromAligned(
+      ctx, HYA_MEM_STRING, &graph->str_ptrs, sizeof(char *) * n,
+      _Alignof(char *));
+  if (!graph->str_ptrs) {
     LOG_ERROR("str_ptrs alloc failed\n");
     return HYA_ERR_OUT_OF_MEMORY;
   }
   for (ptrdiff_t i = 0; i < n; i++) {
-    str_ptrs[i] = ctx->str_arr[i];
+    graph->str_ptrs[i] = ContextAllocFromAligned(
+        ctx, HYA_MEM_STRING, &graph->str_ptrs[i],
+        strlen(ctx->str_map[i].key) + 1, _Alignof(char));
+    if (!graph->str_ptrs[i]) {
+      LOG_ERROR("str_ptr alloc %td failed\n", i);
+      return HYA_ERR_OUT_OF_MEMORY;
+    }
+    strcpy((char *)graph->str_ptrs[i], ctx->str_map[i].key);
   }
-  graph->str_ptrs = (const char **)str_ptrs;
 
   // create vars
-  graph->num_vars = (size_t)ctx->next_var_id;
+  graph->num_vars = shlen(ctx->var_map);
   graph->vars = (HYA_Var *)ContextAllocFromAligned(
-      ctx, HYA_MEM_VAR, sizeof(HYA_Var) * graph->num_vars, _Alignof(HYA_Var));
+      ctx, HYA_MEM_VAR, &graph->vars, sizeof(HYA_Var) * graph->num_vars,
+      _Alignof(HYA_Var));
   if (!graph->vars) {
     fprintf(stderr, "failure allocating %zu HYA_Var*\n", graph->num_vars);
     return HYA_ERR_OUT_OF_MEMORY;
@@ -330,12 +339,11 @@ HYA_Result InitGraph(HYA_Graph *graph, Context *ctx,
   memset(graph->vars, 0, sizeof(HYA_Var) * graph->num_vars);  // NOLINT
   n = shlen(ctx->var_map);                                    // number of pairs
   for (ptrdiff_t i = 0; i < n; i++) {
-    char *key = ctx->var_map[i].key;
-    size_t value = ctx->var_map[i].value;
+    const char *key = ctx->var_map[i].key;
 
     // find name from string table
-    int id = shget(ctx->str_map, key);
-    graph->vars[value].name = id;
+    int str_id = shgeti(ctx->str_map, key);
+    graph->vars[i].name = str_id;
   }
 
   return HYA_OK;
@@ -346,7 +354,7 @@ HYA_Result InitNode(HYA_Node *node, Context *ctx, struct json_value_s *value) {
   JSON_OBJ_FOR_EACH(object, obj_elem) {
     if (0 == strcmp(obj_elem->name->string, "name")) {
       JSON_VAL_TO_STR(obj_elem->value, s);
-      int id = shget(ctx->node_map, s->string);
+      int id = shgeti(ctx->node_map, s->string);
       if (id < 0) {
         LOG_ERROR("unknown node name %s\n", s->string);
         return HYA_ERR_JSON_SCHEMA;
@@ -355,7 +363,7 @@ HYA_Result InitNode(HYA_Node *node, Context *ctx, struct json_value_s *value) {
       node->name = ContextInternString(ctx, s->string);
     } else if (0 == strcmp(obj_elem->name->string, "type")) {
       JSON_VAL_TO_STR(obj_elem->value, s);
-      int id = shget(ctx->type_map, s->string);
+      int id = shgeti(ctx->type_map, s->string);
       if (id < 0) {
         LOG_ERROR("unknown node type %s\n", s->string);
         return HYA_ERR_JSON_SCHEMA;
@@ -365,8 +373,8 @@ HYA_Result InitNode(HYA_Node *node, Context *ctx, struct json_value_s *value) {
       JSON_VAL_TO_ARR(obj_elem->value, a);
       node->num_children = a->length;
       node->children = (HYA_NODE_ID *)ContextAllocFromAligned(
-          ctx, HYA_MEM_NODE, sizeof(HYA_NODE_ID) * node->num_children,
-          _Alignof(HYA_NODE_ID));
+          ctx, HYA_MEM_NODE, &node->children,
+          sizeof(HYA_NODE_ID) * node->num_children, _Alignof(HYA_NODE_ID));
       if (!node->children) {
         LOG_ERROR("children allocation failed\n");
         return HYA_ERR_OUT_OF_MEMORY;
@@ -374,7 +382,7 @@ HYA_Result InitNode(HYA_Node *node, Context *ctx, struct json_value_s *value) {
       int i = 0;
       JSON_ARR_FOR_EACH(a, arr_elem) {
         JSON_VAL_TO_STR(arr_elem->value, s);
-        int id = shget(ctx->node_map, s->string);
+        int id = shgeti(ctx->node_map, s->string);
         if (id < 0) {
           LOG_ERROR("unknown node name %s\n", s->string);
           return HYA_ERR_JSON_SCHEMA;
@@ -420,10 +428,10 @@ static HYA_Result InitTransition(HYA_Transition *transition, Context *ctx,
   JSON_OBJ_FOR_EACH(object, obj_elem) {
     if (0 == strcmp(obj_elem->name->string, "var")) {
       JSON_VAL_TO_STR(obj_elem->value, s);
-      int var_id = shget(ctx->var_map, s->string);
+      int var_id = shgeti(ctx->var_map, s->string);
       if (var_id < 0) {
-        var_id = ctx->next_var_id++;
-        shput(ctx->var_map, s->string, var_id);
+        shputs(ctx->var_map, (Symbol){s->string});
+        var_id = shlen(ctx->var_map) - 1;
       }
       transition->var_id = var_id;
       ContextInternString(ctx, s->string);
@@ -465,8 +473,8 @@ static HYA_Result InitState(HYA_State *state, Context *ctx,
       JSON_VAL_TO_ARR(obj_elem->value, a)
       state->num_transitions = a->length;
       state->transitions = (HYA_Transition *)ContextAllocFromAligned(
-          ctx, HYA_MEM_NODE, sizeof(HYA_Transition) * a->length,
-          _Alignof(HYA_Transition));
+          ctx, HYA_MEM_NODE, &state->transitions,
+          sizeof(HYA_Transition) * a->length, _Alignof(HYA_Transition));
       if (!state->transitions) {
         LOG_ERROR("state->transitions alloc failed\n");
         return HYA_ERR_OUT_OF_MEMORY;
@@ -502,7 +510,7 @@ HYA_Result InitStateMachineNode(HYA_StateMachineNode *node, Context *ctx,
       JSON_VAL_TO_ARR(obj_elem->value, a);
       node->num_states = a->length;
       node->states = (HYA_State *)ContextAllocFromAligned(
-          ctx, HYA_MEM_NODE, sizeof(HYA_State) * a->length,
+          ctx, HYA_MEM_NODE, &node->states, sizeof(HYA_State) * a->length,
           _Alignof(HYA_State));
       if (!node->states) {
         LOG_ERROR("states alloc failed\n");

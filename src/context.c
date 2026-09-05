@@ -57,10 +57,11 @@ static bool basename(const char *path, char *out, size_t out_size) {
 
 HYA_Result ContextInit(Context *ctx, size_t arena_size, const char *filename) {
   memset(ctx, 0, sizeof(Context));
-  shdefault(ctx->node_map, -1);
-  shdefault(ctx->type_map, -1);
-  shdefault(ctx->var_map, -1);
-  shdefault(ctx->str_map, -1);
+  sh_new_strdup(ctx->node_map);  // map will own a copy of string keys.
+  sh_new_strdup(ctx->type_map);
+  sh_new_strdup(ctx->var_map);
+  sh_new_strdup(ctx->str_map);
+
   HYA_Result res = ArenaCreate(&ctx->arena, arena_size);
   if (res != HYA_OK) {
     printf("ERROR ArenaCreate failure %d\n", res);
@@ -95,7 +96,6 @@ void ContextDeinit(Context *ctx) {
   shfree(ctx->type_map);
   shfree(ctx->var_map);
   shfree(ctx->str_map);
-  arrfree(ctx->str_arr);
   arrfree(ctx->reloc_arr);
 }
 
@@ -105,45 +105,39 @@ void ContextDestroy(Context *ctx) {
 }
 
 HYA_STR_ID ContextInternString(Context *ctx, const char *str) {
-  int str_id = shget(ctx->str_map, str);
-  if (str_id < 0) {
-    str_id = arrlen(ctx->str_arr);
-
-    // make a copy of the string in the arena
-    size_t len = strlen(str);  // NOLINT
-    char *arena_str = (char *)ContextAllocFromAligned(ctx, HYA_MEM_STRING,
-                                                      len + 1, _Alignof(char));
-    if (!arena_str) {
-      fprintf(stderr,
-              "ERROR: ContextInternString: failure allocating string of %zu "
-              "bytes\n",
-              len + 1);
-      return -1;
-    }
-    strcpy(arena_str, str);  // NOLINT
-
-    // push the arena_str to the str_map and str_arr
-    shput(ctx->str_map, arena_str, str_id);
-    arrpush(ctx->str_arr, arena_str);
+  ptrdiff_t i = shgeti(ctx->str_map, str);
+  if (i < 0) {
+    shputs(ctx->str_map, (Symbol){str});
+    return shlen(ctx->str_map) - 1;
   }
-  return str_id;
+  return i;
 }
 
 // Specific alignment: for minimal padding
-uint8_t *ContextAllocFromAligned(Context *ctx, HYA_MemCategory cat, size_t size,
-                                 size_t align) {
+uint8_t *ContextAllocFromAligned(Context *ctx, HYA_MemCategory cat, void *addr,
+                                 size_t size, size_t align) {
   uint8_t *res = ArenaAllocFromAligned(ctx->arena, size, align);
-  // save this allocation for later relocation during cooking.
-  RelocInfo reloc = {res, res - ctx->arena->base, size, cat};
-  arrpush(ctx->reloc_arr, reloc);
+  if (res) {
+    // save this allocation for later relocation during cooking.
+    RelocInfo reloc = {addr, res - ctx->arena->base, size, cat};
+    arrpush(ctx->reloc_arr, reloc);
+  }
   return res;
 }
 
 // Default alignment: safe for any built-in type.
-uint8_t *ContextAllocFrom(Context *ctx, HYA_MemCategory cat, size_t size) {
+uint8_t *ContextAllocFrom(Context *ctx, HYA_MemCategory cat, void *addr,
+                          size_t size) {
   uint8_t *res = ArenaAllocFrom(ctx->arena, size);
-  // save this allocation for later relocation during cooking.
-  RelocInfo reloc = {res, res - ctx->arena->base, size, cat};
-  arrpush(ctx->reloc_arr, reloc);
+  if (res) {
+    // save this allocation for later relocation during cooking.
+    RelocInfo reloc = {addr, res - ctx->arena->base, size, cat};
+    arrpush(ctx->reloc_arr, reloc);
+  }
   return res;
+}
+
+void ContextRelocAlias(Context *ctx, void *addr, void *ptr) {
+  RelocInfo reloc = {addr, (uint8_t *)ptr - ctx->arena->base, 0, 0};
+  arrpush(ctx->reloc_arr, reloc);
 }
