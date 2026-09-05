@@ -92,7 +92,7 @@ void PrintGraph(const HYA_Graph *graph) {
   printf("  root = %d\n", graph->root);
 #define X(Name, name, NAME)                                \
   for (size_t i = 0; i < graph->num_##name##_nodes; i++) { \
-    Print##Name##Node(&graph->name##_nodes[i], graph);     \
+    Print##Name##Node(graph->name##_nodes[i], graph);      \
   }
   HYA_NODE_NAME_LIST
 #undef X
@@ -173,18 +173,22 @@ static HYA_Result BuildNodes(struct json_value_s *value, HYA_Graph *graph,
 
   // now allocate arrays for each node type and set counts back to zero
   // for second pass
-#define X(Name, name, NAME)                                            \
-  if (graph->num_##name##_nodes > 0) {                                 \
-    graph->name##_nodes = (HYA_##Name##Node *)ContextAllocFromAligned( \
-        ctx, HYA_MEM_NODE, &graph->name##_nodes,                       \
-        sizeof(HYA_##Name##Node) * graph->num_##name##_nodes,          \
-        _Alignof(HYA_##Name##Node));                                   \
-    if (!graph->name##_nodes) {                                        \
-      LOG_ERROR("%s allocate failed\n", #name "_nodes");               \
-      return HYA_ERR_OUT_OF_MEMORY;                                    \
-    }                                                                  \
-    graph->num_##name##_nodes = 0;                                     \
-  }
+#define X(Name, name, NAME)                                                   \
+  size_t name##_n = graph->num_##name##_nodes;                                \
+  graph->name##_nodes = (HYA_##Name##Node **)ContextAllocFromAligned(         \
+      ctx, HYA_MEM_NODE, &graph->name##_nodes,                                \
+      sizeof(HYA_##Name##Node *) * name##_n, _Alignof(HYA_##Name##Node *));   \
+  for (size_t i = 0; i < graph->num_##name##_nodes; i++) {                    \
+    graph->name##_nodes[i] = (HYA_##Name##Node *)ContextAllocFromAligned(     \
+        ctx, HYA_MEM_NODE, &graph->name##_nodes[i], sizeof(HYA_##Name##Node), \
+        _Alignof(HYA_##Name##Node));                                          \
+    if (!graph->name##_nodes) {                                               \
+      LOG_ERROR("%s allocate failed\n", #name "_nodes");                      \
+      return HYA_ERR_OUT_OF_MEMORY;                                           \
+    }                                                                         \
+  }                                                                           \
+  graph->num_##name##_nodes = 0;
+
   HYA_NODE_NAME_LIST
 #undef X
 
@@ -195,14 +199,14 @@ static HYA_Result BuildNodes(struct json_value_s *value, HYA_Graph *graph,
       if (0 == strcmp(obj_elem->name->string, "type")) {
         JSON_VAL_TO_STR(obj_elem->value, s);
 
-#define X(Name, name, NAME)                                                   \
-  if (0 == strcmp(s->string, #name)) {                                        \
-    res = Init##Name##Node(&graph->name##_nodes[graph->num_##name##_nodes++], \
-                           ctx, arr_elem->value);                             \
-    if (res != HYA_OK) {                                                      \
-      LOG_ERROR("Init" #Name "Node failed: %d\n", res);                       \
-      return res;                                                             \
-    }                                                                         \
+#define X(Name, name, NAME)                                                  \
+  if (0 == strcmp(s->string, #name)) {                                       \
+    res = Init##Name##Node(graph->name##_nodes[graph->num_##name##_nodes++], \
+                           ctx, arr_elem->value);                            \
+    if (res != HYA_OK) {                                                     \
+      LOG_ERROR("Init" #Name "Node failed: %d\n", res);                      \
+      return res;                                                            \
+    }                                                                        \
   }
         HYA_NODE_NAME_LIST
 #undef X
@@ -279,7 +283,7 @@ HYA_Result InitGraph(HYA_Graph *graph, Context *ctx,
 
 #define X(Name, name, NAME)                                         \
   for (size_t i = 0; i < graph->num_##name##_nodes; i++) {          \
-    HYA_##Name##Node *node = &graph->name##_nodes[i]; /* NOLINT */  \
+    HYA_##Name##Node *node = graph->name##_nodes[i]; /* NOLINT */   \
     assert(node && node->node.id >= 0);                             \
     graph->node_ptrs[node->node.id] = (HYA_Node *)node;             \
     ContextRelocAlias(ctx, &graph->node_ptrs[node->node.id], node); \
@@ -296,7 +300,7 @@ HYA_Result InitGraph(HYA_Graph *graph, Context *ctx,
 
   // now load each gltf node.
   for (size_t i = 0; i < graph->num_motion_nodes; i++) {
-    HYA_MotionNode *node = &graph->motion_nodes[i];
+    HYA_MotionNode *node = graph->motion_nodes[i];
     const char *src = ctx->str_map[node->src].key;
     res = InitMotionFromGLTF(src, &graph->tpose, &node->motion,
                              node->sample_rate, node->loop, ctx);

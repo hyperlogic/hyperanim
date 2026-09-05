@@ -169,7 +169,7 @@ typedef struct HYA_Graph {
 
 #define X(Name, name, NAME)  \
   size_t num_##name##_nodes; \
-  HYA_##Name##Node *name##_nodes;  // NOLINT
+  HYA_##Name##Node **name##_nodes;  // NOLINT
   HYA_NODE_NAME_LIST
 #undef X
 
