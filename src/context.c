@@ -111,7 +111,8 @@ HYA_STR_ID ContextInternString(Context *ctx, const char *str) {
 
     // make a copy of the string in the arena
     size_t len = strlen(str);  // NOLINT
-    char *arena_str = (char *)ContextAllocFrom(ctx, HYA_MEM_STRING, len + 1);
+    char *arena_str = (char *)ContextAllocFromAligned(ctx, HYA_MEM_STRING,
+                                                      len + 1, _Alignof(char));
     if (!arena_str) {
       fprintf(stderr,
               "ERROR: ContextInternString: failure allocating string of %zu "
