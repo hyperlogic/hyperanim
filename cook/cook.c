@@ -15,11 +15,11 @@
 #define STB_DS_IMPLEMENTATION
 #include "stb_ds.h"
 
-void PrintUsage(const char *prog) {
+static void PrintUsage(const char *prog) {
   fprintf(stderr, "usage: %s -i <input.json> -o <output.hya>\n", prog);
 }
 
-char *ReadFile(const char *filename, size_t *out_size) {
+static char *ReadFile(const char *filename, size_t *out_size) {
   FILE *fp = fopen(filename, "rb");
   if (!fp) {
     return NULL;
@@ -61,7 +61,13 @@ char *ReadFile(const char *filename, size_t *out_size) {
   return buf;
 }
 
+static HYA_Result CookGraph(HYA_Graph *graph, const char *filename) {
+  // update all the ptrs to be relative to the graph base addr.
+  return HYA_ERR_FAILURE;
+}
+
 int main(int argc, char **argv) {
+  HYA_Result res = HYA_OK;
   const char *input = NULL;
   const char *output = NULL;
   int c;
@@ -82,14 +88,16 @@ int main(int argc, char **argv) {
   if (!input || !output) {
     fprintf(stderr, "%s: both -i and -o are required\n", argv[0]);
     PrintUsage(argv[0]);
-    return 2;
+    res = HYA_ERR_BAD_ARGS;
+    goto cleanup_0;
   }
 
   size_t buf_size = 0;
   char *buf = ReadFile(input, &buf_size);
   if (!buf) {
     printf("ERROR: loading %s\n", input);
-    return 1;
+    res = HYA_ERR_FILE;
+    goto cleanup_0;
   }
 
   struct json_parse_result_s parse_result;
@@ -102,16 +110,16 @@ int main(int argc, char **argv) {
     printf("JSON parse error %zu at line %zu, column %zu (byte offset %zu)\n",
            parse_result.error, parse_result.error_line_no,
            parse_result.error_row_no, parse_result.error_offset);
-    return 1;
+    res = HYA_ERR_JSON_PARSE;
+    goto cleanup_0;
   }
 
   Context ctx;
   const size_t ARENA_SIZE = (size_t)10 * 1024 * 1024;
-  HYA_Result res = ContextInit(&ctx, ARENA_SIZE, input);
+  res = ContextInit(&ctx, ARENA_SIZE, input);
   if (res != HYA_OK) {
-    free(root);
     printf("ERROR: ContextInit failed: %d\n", res);
-    return res;
+    goto cleanup_1;
   }
 
 #define X(Name, name, NAME) shput(ctx.type_map, #name, HYA_NODE_TYPE_##NAME);
@@ -120,7 +128,12 @@ int main(int argc, char **argv) {
 
   HYA_Graph *graph = NULL;
   assert(ctx.arena->offset == 0);  // graph must be the first allocation
-  graph = (HYA_Graph *)ArenaAllocFrom(ctx.arena, sizeof(HYA_Graph));
+  graph = (HYA_Graph *)ContextAllocFrom(&ctx, HYA_MEM_NODE, sizeof(HYA_Graph));
+  if (!graph) {
+    printf("ERROR: Could not allocate graph of size %zu\n", sizeof(HYA_Graph));
+    res = HYA_ERR_OUT_OF_MEMORY;
+    goto cleanup_1;
+  }
 
   // NOTE: the strings in the ctx stb_ds maps
   // point directly to data from the json root json_value_s
@@ -131,16 +144,37 @@ int main(int argc, char **argv) {
     if (res == HYA_ERR_OUT_OF_MEMORY) {
       printf("Try increasing ARENA_SIZE, currently %zu bytes\n", ARENA_SIZE);
     }
-    ContextDeinit(&ctx);
-    free(root);
-    return res;
+    goto cleanup_2;
   }
 
   printf("graph using %zu bytes\n", ctx.arena->offset);
-  PrintGraph(graph);
+  printf("graph mem by catagory:\n");
+  size_t counts[HYA_MEM_COUNT] = {0};
+  size_t total = 0;
+  for (ptrdiff_t i = 0; i < arrlen(ctx.reloc_arr); i++) {
+    size_t size = ctx.reloc_arr[i].size;
+    total += size;
+    counts[ctx.reloc_arr[i].cat] += size;
+  }
+  const char *categories[HYA_MEM_COUNT] = {"Node", "String", "Var", "Skeleton",
+                                           "Motion"};
+  for (int i = 0; i < HYA_MEM_COUNT; i++) {
+    printf("    %s: %zu bytes\n", categories[i], counts[i]);
+  }
+  printf("    padding: %zu bytes\n", ctx.arena->offset - total);
+  // PrintGraph(graph);
 
+  res = CookGraph(graph, output);
+  if (res != HYA_OK) {
+    printf("ERROR: CookGraph failure: %d\n", res);
+    goto cleanup_2;
+  }
+
+cleanup_2:
   ContextDeinit(&ctx);
+cleanup_1:
   free(root);
+cleanup_0:
 
   return 0;
 }

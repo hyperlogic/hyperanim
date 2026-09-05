@@ -76,6 +76,7 @@ HYA_Result ContextInit(Context *ctx, size_t arena_size, const char *filename) {
     ContextDeinit(ctx);
     return HYA_ERR_FAILURE;
   }
+  ctx->reloc_arr = NULL;
   return HYA_OK;
 }
 
@@ -95,6 +96,7 @@ void ContextDeinit(Context *ctx) {
   shfree(ctx->var_map);
   shfree(ctx->str_map);
   arrfree(ctx->str_arr);
+  arrfree(ctx->reloc_arr);
 }
 
 void ContextDestroy(Context *ctx) {
@@ -109,7 +111,7 @@ HYA_STR_ID ContextInternString(Context *ctx, const char *str) {
 
     // make a copy of the string in the arena
     size_t len = strlen(str);  // NOLINT
-    char *arena_str = (char *)ArenaAllocFrom(ctx->arena, len + 1);
+    char *arena_str = (char *)ContextAllocFrom(ctx, HYA_MEM_STRING, len + 1);
     if (!arena_str) {
       fprintf(stderr,
               "ERROR: ContextInternString: failure allocating string of %zu "
@@ -124,4 +126,23 @@ HYA_STR_ID ContextInternString(Context *ctx, const char *str) {
     arrpush(ctx->str_arr, arena_str);
   }
   return str_id;
+}
+
+// Specific alignment: for minimal padding
+uint8_t *ContextAllocFromAligned(Context *ctx, HYA_MemCategory cat, size_t size,
+                                 size_t align) {
+  uint8_t *res = ArenaAllocFromAligned(ctx->arena, size, align);
+  // save this allocation for later relocation during cooking.
+  RelocInfo reloc = {res, res - ctx->arena->base, size, cat};
+  arrpush(ctx->reloc_arr, reloc);
+  return res;
+}
+
+// Default alignment: safe for any built-in type.
+uint8_t *ContextAllocFrom(Context *ctx, HYA_MemCategory cat, size_t size) {
+  uint8_t *res = ArenaAllocFrom(ctx->arena, size);
+  // save this allocation for later relocation during cooking.
+  RelocInfo reloc = {res, res - ctx->arena->base, size, cat};
+  arrpush(ctx->reloc_arr, reloc);
+  return res;
 }

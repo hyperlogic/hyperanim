@@ -46,7 +46,7 @@ static inline uintptr_t AlignUp(uintptr_t n, size_t align) {
   return (n + (align - 1)) & ~(uintptr_t)(align - 1);
 }
 
-void *ArenaAllocFromAligned(Arena *a, size_t size, size_t align) {
+uint8_t *ArenaAllocFromAligned(Arena *a, size_t size, size_t align) {
   uintptr_t curr = (uintptr_t)a->base + a->offset;
   uintptr_t aligned = AlignUp(curr, align);
   size_t padding = aligned - curr;
@@ -61,6 +61,6 @@ void *ArenaAllocFromAligned(Arena *a, size_t size, size_t align) {
   return (void *)aligned;  // NOLINT
 }
 
-void *ArenaAllocFrom(Arena *a, size_t size) {
+uint8_t *ArenaAllocFrom(Arena *a, size_t size) {
   return ArenaAllocFromAligned(a, size, _Alignof(max_align_t));
 }

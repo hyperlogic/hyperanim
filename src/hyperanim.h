@@ -20,6 +20,9 @@ typedef enum HYA_Result {
   HYA_ERR_NOT_FOUND,
   HYA_ERR_NOT_IMPLEMENTED,
   HYA_ERR_SKELETON_MISMATCH,
+  HYA_ERR_BAD_ARGS,
+  HYA_ERR_FILE,
+  HYA_ERR_JSON_PARSE
 } HYA_Result;
 
 typedef struct HYA_Vec3 {

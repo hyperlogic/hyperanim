@@ -13,8 +13,8 @@
 #include "hyperanim.h"
 
 typedef struct Arena {
-  unsigned char *base;  // start of the backing buffer
-  size_t offset;        // bytes handed out so far
+  uint8_t *base;  // start of the backing buffer
+  size_t offset;  // bytes handed out so far
   size_t capacity;
 } Arena;
 
@@ -23,9 +23,10 @@ HYA_Result ArenaCreate(Arena **arena, size_t arena_size);
 void ArenaDeinit(Arena *arena);
 void ArenaDestroy(Arena *arena);
 
-void *ArenaAllocFromAligned(Arena *a, size_t size, size_t align);
+// Specific alignment: for minimal padding
+uint8_t *ArenaAllocFromAligned(Arena *a, size_t size, size_t align);
 
 // Default alignment: safe for any built-in type.
-void *ArenaAllocFrom(Arena *a, size_t size);
+uint8_t *ArenaAllocFrom(Arena *a, size_t size);
 
 #endif  // #define ARENA_H

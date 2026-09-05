@@ -172,15 +172,16 @@ static HYA_Result BuildNodes(struct json_value_s *value, HYA_Graph *graph,
 
   // now allocate arrays for each node type and set counts back to zero
   // for second pass
-#define X(Name, name, NAME)                                                \
-  if (graph->num_##name##_nodes > 0) {                                     \
-    graph->name##_nodes = (HYA_##Name##Node *)ArenaAllocFrom(              \
-        ctx->arena, sizeof(HYA_##Name##Node) * graph->num_##name##_nodes); \
-    if (!graph->name##_nodes) {                                            \
-      LOG_ERROR("%s allocate failed\n", #name "_nodes");                   \
-      return HYA_ERR_OUT_OF_MEMORY;                                        \
-    }                                                                      \
-    graph->num_##name##_nodes = 0;                                         \
+#define X(Name, name, NAME)                                     \
+  if (graph->num_##name##_nodes > 0) {                          \
+    graph->name##_nodes = (HYA_##Name##Node *)ContextAllocFrom( \
+        ctx, HYA_MEM_NODE,                                      \
+        sizeof(HYA_##Name##Node) * graph->num_##name##_nodes);  \
+    if (!graph->name##_nodes) {                                 \
+      LOG_ERROR("%s allocate failed\n", #name "_nodes");        \
+      return HYA_ERR_OUT_OF_MEMORY;                             \
+    }                                                           \
+    graph->num_##name##_nodes = 0;                              \
   }
   HYA_NODE_NAME_LIST
 #undef X
@@ -266,8 +267,8 @@ HYA_Result InitGraph(HYA_Graph *graph, Context *ctx,
 
   // create ptrs to each node with node id as in index.
   graph->num_node_ptrs = (size_t)ctx->next_node_id;
-  graph->node_ptrs = (HYA_Node **)ArenaAllocFrom(
-      ctx->arena, sizeof(HYA_Node *) * graph->num_node_ptrs);
+  graph->node_ptrs = (HYA_Node **)ContextAllocFrom(
+      ctx, HYA_MEM_NODE, sizeof(HYA_Node *) * graph->num_node_ptrs);
   if (!graph->node_ptrs) {
     LOG_ERROR("node_ptrs alloc failed\n");
     return HYA_ERR_OUT_OF_MEMORY;
@@ -305,7 +306,7 @@ HYA_Result InitGraph(HYA_Graph *graph, Context *ctx,
   ptrdiff_t n = arrlen(ctx->str_arr);
   graph->num_str_ptrs = n;
   const char **str_ptrs =
-      (const char **)ArenaAllocFrom(ctx->arena, sizeof(char *) * n);
+      (const char **)ContextAllocFrom(ctx, HYA_MEM_STRING, sizeof(char *) * n);
   if (!str_ptrs) {
     LOG_ERROR("str_ptrs alloc failed\n");
     return HYA_ERR_OUT_OF_MEMORY;
@@ -317,8 +318,8 @@ HYA_Result InitGraph(HYA_Graph *graph, Context *ctx,
 
   // create vars
   graph->num_vars = (size_t)ctx->next_var_id;
-  graph->vars =
-      (HYA_Var *)ArenaAllocFrom(ctx->arena, sizeof(HYA_Var) * graph->num_vars);
+  graph->vars = (HYA_Var *)ContextAllocFrom(ctx, HYA_MEM_VAR,
+                                            sizeof(HYA_Var) * graph->num_vars);
   if (!graph->vars) {
     fprintf(stderr, "failure allocating %zu HYA_Var*\n", graph->num_vars);
     return HYA_ERR_OUT_OF_MEMORY;
@@ -360,8 +361,8 @@ HYA_Result InitNode(HYA_Node *node, Context *ctx, struct json_value_s *value) {
     } else if (0 == strcmp(obj_elem->name->string, "children")) {
       JSON_VAL_TO_ARR(obj_elem->value, a);
       node->num_children = a->length;
-      node->children =
-          ArenaAllocFrom(ctx->arena, sizeof(HYA_NODE_ID) * node->num_children);
+      node->children = (HYA_NODE_ID *)ContextAllocFrom(
+          ctx, HYA_MEM_NODE, sizeof(HYA_NODE_ID) * node->num_children);
       if (!node->children) {
         LOG_ERROR("children allocation failed\n");
         return HYA_ERR_OUT_OF_MEMORY;
@@ -459,8 +460,8 @@ static HYA_Result InitState(HYA_State *state, Context *ctx,
     } else if (0 == strcmp(obj_elem->name->string, "transitions")) {
       JSON_VAL_TO_ARR(obj_elem->value, a)
       state->num_transitions = a->length;
-      state->transitions = (HYA_Transition *)ArenaAllocFrom(
-          ctx->arena, sizeof(HYA_Transition) * a->length);
+      state->transitions = (HYA_Transition *)ContextAllocFrom(
+          ctx, HYA_MEM_NODE, sizeof(HYA_Transition) * a->length);
       if (!state->transitions) {
         LOG_ERROR("state->transitions alloc failed\n");
         return HYA_ERR_OUT_OF_MEMORY;
@@ -495,8 +496,8 @@ HYA_Result InitStateMachineNode(HYA_StateMachineNode *node, Context *ctx,
     if (0 == strcmp(obj_elem->name->string, "states")) {
       JSON_VAL_TO_ARR(obj_elem->value, a);
       node->num_states = a->length;
-      node->states = (HYA_State *)ArenaAllocFrom(ctx->arena,
-                                                 sizeof(HYA_State) * a->length);
+      node->states = (HYA_State *)ContextAllocFrom(
+          ctx, HYA_MEM_NODE, sizeof(HYA_State) * a->length);
       if (!node->states) {
         LOG_ERROR("states alloc failed\n");
         return HYA_ERR_OUT_OF_MEMORY;
