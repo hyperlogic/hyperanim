@@ -119,7 +119,8 @@ uint8_t *ContextAllocFromAligned(Context *ctx, HYA_MemCategory cat, void *addr,
   uint8_t *res = ArenaAllocFromAligned(ctx->arena, size, align);
   if (res) {
     // save this allocation for later relocation during cooking.
-    RelocInfo reloc = {addr, res, res - ctx->arena->base, size, cat};
+    ptrdiff_t pp = addr ? (uint8_t *)addr - ctx->arena->base : 0;
+    RelocInfo reloc = {pp, res - ctx->arena->base, size, cat};
     arrpush(ctx->reloc_arr, reloc);
   }
   return res;
@@ -131,13 +132,15 @@ uint8_t *ContextAllocFrom(Context *ctx, HYA_MemCategory cat, void *addr,
   uint8_t *res = ArenaAllocFrom(ctx->arena, size);
   if (res) {
     // save this allocation for later relocation during cooking.
-    RelocInfo reloc = {addr, res, res - ctx->arena->base, size, cat};
+    ptrdiff_t pp = addr ? (uint8_t *)addr - ctx->arena->base : 0;
+    RelocInfo reloc = {pp, res - ctx->arena->base, size, cat};
     arrpush(ctx->reloc_arr, reloc);
   }
   return res;
 }
 
 void ContextRelocAlias(Context *ctx, void *addr, void *ptr) {
-  RelocInfo reloc = {addr, ptr, (uint8_t *)ptr - ctx->arena->base, 0, 0};
+  RelocInfo reloc = {(uint8_t *)addr - ctx->arena->base,
+                     (uint8_t *)ptr - ctx->arena->base, 0, 0};
   arrpush(ctx->reloc_arr, reloc);
 }

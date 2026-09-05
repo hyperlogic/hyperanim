@@ -68,21 +68,41 @@ offset 0
 offset 1
 ...
 offset n-1
+num_offsets  size_t
 HYA_Graph
 */
 
 static HYA_Result CookGraph(Context *ctx, HYA_Graph *graph,
                             const char *filename) {
+  FILE *fp = fopen(filename, "wb");
+  fwrite("HYAC", 4, 1, fp);
+
+  // skip the first offset, because it's of the graph itself.
+  size_t num_offsets = arrlen(ctx->reloc_arr) - 1;
+  fwrite(&num_offsets, sizeof(size_t), 1, fp);
+
   const char *categories[HYA_MEM_COUNT] = {"Node", "String", "Var", "Skeleton",
                                            "Motion"};
-
-  // update all the ptrs to be relative to the graph base addr.
-  for (ptrdiff_t i = 0; i < arrlen(ctx->reloc_arr); i++) {
+  // munge all the ptrs to be relative to the graph base addr.
+  for (ptrdiff_t i = 1; i < arrlen(ctx->reloc_arr); i++) {
     const RelocInfo *r = ctx->reloc_arr + i;
-    printf("reloc[%td] %s: addr = %p, ptr = %p, offset = %td, size = %zu\n", i,
-           categories[r->cat], r->addr, r->ptr, r->offset, r->size);
+    printf("reloc[%td] %s: pp = %td, p = %td, size = %zu\n", i,
+           categories[r->cat], r->pp, r->p, r->size);
+    size_t offset = (size_t)r->pp;
+    fwrite(&offset, sizeof(size_t), 1, fp);
+    *(uintptr_t *)(ctx->arena->base + r->pp) = (uintptr_t)r->p;
   }
-  return HYA_ERR_FAILURE;
+  fwrite(&num_offsets, sizeof(size_t), 1, fp);
+  fwrite(graph, ctx->arena->offset, 1, fp);
+  fclose(fp);
+
+  // un munge the ptrs
+  for (ptrdiff_t i = 1; i < arrlen(ctx->reloc_arr); i++) {
+    const RelocInfo *r = ctx->reloc_arr + i;
+    *(uint8_t **)(ctx->arena->base + r->pp) = ctx->arena->base + r->p;
+  }
+
+  return HYA_OK;
 }
 
 int main(int argc, char **argv) {
@@ -184,6 +204,7 @@ int main(int argc, char **argv) {
   printf("    padding: %zu bytes\n", ctx.arena->offset - total);
   PrintGraph(graph);
 
+  // NOTE: this invalidates the graph
   res = CookGraph(&ctx, graph, output);
   if (res != HYA_OK) {
     printf("ERROR: CookGraph failure: %d\n", res);

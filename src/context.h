@@ -24,9 +24,8 @@ typedef enum HYA_MemCategory {
 } HYA_MemCategory;
 
 typedef struct RelocInfo {
-  void *addr;
-  void *ptr;
-  ptrdiff_t offset;
+  ptrdiff_t pp;  // address of ptr (rel to base)
+  ptrdiff_t p;   // value of ptr (rel to base)
   size_t size;
   HYA_MemCategory cat;
 } RelocInfo;
