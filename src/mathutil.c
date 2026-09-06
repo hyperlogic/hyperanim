@@ -17,6 +17,14 @@ HYA_Quat QuatMul(HYA_Quat q1, HYA_Quat q2) {
 
 HYA_Quat QuatInv(HYA_Quat q) { return (HYA_Quat){-q.x, -q.y, -q.z, q.w}; }
 
+HYA_Vec3 Vec3Scale(float s, HYA_Vec3 v) {
+  return (HYA_Vec3){s * v.x, s * v.y, s * v.z};
+}
+
+HYA_Vec3 Vec3Add(HYA_Vec3 lhs, HYA_Vec3 rhs) {
+  return (HYA_Vec3){lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z};
+}
+
 HYA_Vec3 Vec3Rotate(HYA_Quat q, HYA_Vec3 v) {
   HYA_Quat tmp =
       QuatMul(QuatMul(q, (HYA_Quat){v.x, v.y, v.z, 0.0f}), QuatInv(q));
@@ -113,4 +121,43 @@ void Mat4Decompose(const float m[16], HYA_Vec3 *t, HYA_Quat *r, HYA_Vec3 *s) {
   t->x = m[12];
   t->y = m[13];
   t->z = m[14];
+}
+
+void Mat4Make(float m[16], HYA_Vec3 t, HYA_Quat r, HYA_Vec3 s) {
+  HYA_Vec3 x = Vec3Rotate(r, (HYA_Vec3){s.x, 0.0f, 0.0f});
+  HYA_Vec3 y = Vec3Rotate(r, (HYA_Vec3){0.0f, s.y, 0.0f});
+  HYA_Vec3 z = Vec3Rotate(r, (HYA_Vec3){0.0f, 0.0f, s.z});
+
+  m[0] = x.x;
+  m[1] = x.y;
+  m[2] = x.z;
+  m[3] = 0.0f;
+
+  m[4] = y.x;
+  m[5] = y.y;
+  m[6] = y.z;
+  m[7] = 0.0f;
+
+  m[8] = z.x;
+  m[9] = z.y;
+  m[10] = z.z;
+  m[11] = 0.0f;
+
+  m[12] = t.x;
+  m[13] = t.y;
+  m[14] = t.z;
+  m[15] = 0.0f;
+}
+
+HYA_Xform XformIdent() {
+  return (HYA_Xform){(HYA_Vec3){0.0f, 0.0f, 0.0f}, 1.0f,
+                     (HYA_Quat){0.0f, 0.0f, 0.0f, 1.0f}};
+}
+
+HYA_Xform XformMul(HYA_Xform lhs, HYA_Xform rhs) {
+  HYA_Xform result;
+  result.t = Vec3Add(lhs.t, Vec3Rotate(lhs.r, Vec3Scale(lhs.s, rhs.t)));
+  result.r = QuatMul(lhs.r, rhs.r);
+  result.s = lhs.s * rhs.s;
+  return result;
 }

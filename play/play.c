@@ -19,6 +19,7 @@
 
 #include "json.h"
 #include "loadjson.h"
+#include "mathutil.h"
 
 #define STB_DS_IMPLEMENTATION
 #include "stb_ds.h"
@@ -28,10 +29,33 @@ static const Vector2 kMouseSens = {5.5f, -5.5f};
 // Global state for the main loop (needed for emscripten callback)
 static struct {
   FlyCam flycam;
+  HYA_Graph *graph;
 } ctx;
 
 static void PrintUsage(const char *prog) {
   fprintf(stderr, "usage: %s -i <input.hya>\n", prog);
+}
+
+static void Mat4ToRaylib(float *m, Matrix *mm) {
+  mm->m0 = m[0];
+  mm->m1 = m[1];
+  mm->m2 = m[2];
+  mm->m3 = m[3];
+
+  mm->m4 = m[4];
+  mm->m5 = m[5];
+  mm->m6 = m[6];
+  mm->m7 = m[7];
+
+  mm->m8 = m[8];
+  mm->m9 = m[9];
+  mm->m10 = m[10];
+  mm->m11 = m[11];
+
+  mm->m12 = m[12];
+  mm->m13 = m[13];
+  mm->m14 = m[14];
+  mm->m15 = m[15];
 }
 
 static void DrawFloorGrid(float size, int32_t num_subdivs) {
@@ -54,6 +78,27 @@ static void DrawAxes(Matrix m, float axis_len) {
   DrawLine3D(pos, Vector3Transform(z, m), BLUE);
 }
 
+#define MAX_NUM_XFORMS 256
+static HYA_Xform abs_xforms[MAX_NUM_XFORMS];
+
+static void DrawSkeleton(HYA_Skeleton *skeleton) {
+  float m[16];
+  Matrix mm;
+  for (size_t i = 0; i < skeleton->num_joints; i++) {
+    HYA_Xform xform = skeleton->xforms[i];
+    if (skeleton->parent_indices[i] >= 0) {
+      xform = XformMul(abs_xforms[skeleton->parent_indices[i]],
+                       skeleton->xforms[i]);
+      DrawLine3D(*(Vector3 *)&abs_xforms[skeleton->parent_indices[i]].t,
+                 *(Vector3 *)&xform.t, GRAY);
+    }
+    abs_xforms[i] = xform;
+    Mat4Make(m, xform.t, xform.r, (HYA_Vec3){xform.s, xform.s, xform.s});
+    Mat4ToRaylib(m, &mm);
+    DrawAxes(mm, 1.0f);
+  }
+}
+
 static void UpdateAndDraw(void) {
   float dt = GetFrameTime();
   BeginDrawing();
@@ -61,7 +106,6 @@ static void UpdateAndDraw(void) {
 
   /*
   if (IsKeyPressed(KEY_F1)) ctx.draw_help = !ctx.draw_help;
-
   if (IsKeyPressed(KEY_SPACE)) ctx.motion_playing = !ctx.motion_playing;
   */
 
@@ -100,32 +144,9 @@ static void UpdateAndDraw(void) {
   origin.m14 = 0.1f;
   DrawAxes(origin, 100.0f);
 
-  /*
-  MotionRelXformsAtFrame(ctx.rel_xforms, ctx.motion, motion_frame);
-  SkeletonAbsXformsFromRelXforms(ctx.abs_xforms, ctx.motion->skeleton,
-  ctx.rel_xforms); DrawSkeletonWithAbsXforms(ctx.motion->skeleton,
-  ctx.abs_xforms);
-  */
+  DrawSkeleton(&(ctx.graph->tpose));
 
   EndMode3D();
-
-  /*
-  const int kFontSize = 30;
-  const int kPadding = 10;
-  if (ctx.draw_help) {
-    DrawText("a, s, d, f - move\narrows, r-mouse-drag - look\nspace -
-  play/stop\nn, p - step", kPadding, kPadding, kFontSize, RAYWHITE);
-  }
-  const char* text = TextFormat("%3d", motion_frame);
-  int width = MeasureText(text, kFontSize);
-  DrawText(text, GetScreenWidth() - width - kPadding, kPadding, kFontSize,
-  RAYWHITE); int scrubber_frame = (int)motion_frame;
-  DrawScrubber(&scrubber_frame, ctx.motion->num_frames);
-  if ((uint32_t)scrubber_frame != motion_frame) {
-    motion_frame = (uint32_t)scrubber_frame;
-    ctx.motion_t = (float)motion_frame / ctx.motion->sample_rate;
-  }
-  */
 
   EndDrawing();
 }
@@ -164,6 +185,7 @@ int main(int argc, char **argv) {
             res);
     goto cleanup_0;
   }
+  ctx.graph = graph;
 
   // PrintGraph(graph);
 

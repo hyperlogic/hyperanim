@@ -32,7 +32,7 @@ FetchContent_MakeAvailable(raylib)
 
 # Build application
 add_executable(${PROJECT_NAME}
-  ../src/util.c
+  ../src/mathutil.c
   flycam.c
   play.c
 )
