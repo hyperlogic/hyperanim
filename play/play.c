@@ -86,6 +86,11 @@ static void DrawSkeleton(HYA_Skeleton *skeleton) {
   Matrix mm;
   for (size_t i = 0; i < skeleton->num_joints; i++) {
     HYA_Xform xform = skeleton->xforms[i];
+    /*
+    printf("joint[%zu] %s pos = (%.5f, %.5f, %.5f)\n", i,
+           ctx.graph->str_ptrs[skeleton->joint_names[i]], xform.t.x, xform.t.y,
+           xform.t.z);
+    */
     if (skeleton->parent_indices[i] >= 0) {
       xform = XformMul(abs_xforms[skeleton->parent_indices[i]],
                        skeleton->xforms[i]);

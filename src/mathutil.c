@@ -146,7 +146,7 @@ void Mat4Make(float m[16], HYA_Vec3 t, HYA_Quat r, HYA_Vec3 s) {
   m[12] = t.x;
   m[13] = t.y;
   m[14] = t.z;
-  m[15] = 0.0f;
+  m[15] = 1.0f;
 }
 
 HYA_Xform XformIdent() {
