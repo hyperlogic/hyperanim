@@ -54,6 +54,48 @@ static void BuildNodeArr(cgltf_node *node, cgltf_node ***node_arr) {
   }
 }
 
+static void GetRelTransform(const cgltf_node *node, HYA_Vec3 *t, HYA_Quat *r,
+                            HYA_Vec3 *s) {
+  if (node->has_matrix) {
+    Mat4Decompose(node->matrix, t, r, s);
+  } else {
+    if (node->has_translation) {
+      *t = (HYA_Vec3){node->translation[0], node->translation[1],
+                      node->translation[2]};
+    } else {
+      *t = (HYA_Vec3){0};
+    }
+    if (node->has_scale) {
+      *s = (HYA_Vec3){node->scale[0], node->scale[1], node->scale[2]};
+    } else {
+      *s = (HYA_Vec3){1.0f, 1.0f, 1.0f};
+    }
+    if (node->has_rotation) {
+      *r = (HYA_Quat){node->rotation[0], node->rotation[1], node->rotation[2],
+                      node->rotation[3]};
+    } else {
+      *r = (HYA_Quat){0.0f, 0.0f, 0.0f, 1.0f};
+    }
+  }
+}
+
+static void GetAbsTransform(const cgltf_node *node, HYA_Vec3 *t, HYA_Quat *r,
+                            HYA_Vec3 *s) {
+  float m[16];
+  float tmp_m[16];
+  Mat4Ident(m);
+  HYA_Vec3 tmp_t, tmp_s;
+  HYA_Quat tmp_r;
+  const cgltf_node *n = node;
+  while (n) {
+    GetRelTransform(n, &tmp_t, &tmp_r, &tmp_s);
+    Mat4Make(tmp_m, tmp_t, tmp_r, tmp_s);
+    Mat4Mul(m, tmp_m, m);
+    n = n->parent;
+  }
+  Mat4Decompose(m, t, r, s);
+}
+
 static bool IsSkeletonSame(cgltf_node **node_arr, const HYA_Skeleton *skeleton,
                            Context *ctx) {
   if (skeleton->num_joints != arrlen(node_arr)) {
@@ -189,39 +231,21 @@ HYA_Result InitSkeletonFromGLTF(const char *filename, const char *root_joint,
       goto cleanup_3;
     }
     shput(joint_map, node->name, i);
-    if (node->has_matrix) {
-      HYA_Vec3 scale;
-      Mat4Decompose(node->matrix, &skeleton->xforms[i].t,
-                    &skeleton->xforms[i].r, &scale);
-      if (fabs(scale.x - scale.y) > kScaleEpsilon ||
-          fabs(scale.x - scale.z) > kScaleEpsilon) {
-        LOG_WARNING("joint[%td] matrix scale is not uniform\n", i);
-      }
-      skeleton->xforms[i].s = scale.x;
+
+    HYA_Vec3 t, s;
+    HYA_Quat r;
+    if (node == root_node) {
+      GetAbsTransform(node, &t, &r, &s);
     } else {
-      if (node->has_translation) {
-        skeleton->xforms[i].t = (HYA_Vec3){
-            node->translation[0], node->translation[1], node->translation[2]};
-      } else {
-        skeleton->xforms[i].t = (HYA_Vec3){0};
-      }
-      if (node->has_scale) {
-        if (fabs(node->scale[0] - node->scale[1]) > kScaleEpsilon ||
-            fabs(node->scale[0] - node->scale[2]) > kScaleEpsilon) {
-          LOG_WARNING("node[%td] scale is not uniform\n", i);
-        }
-        skeleton->xforms[i].s = node->scale[0];
-      } else {
-        skeleton->xforms[i].s = 1.0f;
-      }
-      if (node->has_rotation) {
-        skeleton->xforms[i].r =
-            (HYA_Quat){node->rotation[0], node->rotation[1], node->rotation[2],
-                       node->rotation[3]};
-      } else {
-        skeleton->xforms[i].r = (HYA_Quat){0.0f, 0.0f, 0.0f, 1.0f};
-      }
+      GetRelTransform(node, &t, &r, &s);
     }
+
+    skeleton->xforms[i].t = t;
+    skeleton->xforms[i].r = r;
+    if (fabs(s.x - s.y) > kScaleEpsilon || fabs(s.x - s.z) > kScaleEpsilon) {
+      LOG_WARNING("joint[%td] matrix scale is not uniform\n", i);
+    }
+    skeleton->xforms[i].s = s.x;
   }
 
   // use joint_map to init parent_indices

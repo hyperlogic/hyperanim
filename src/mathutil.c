@@ -7,6 +7,7 @@
 
 #include <assert.h>
 #include <math.h>
+#include <string.h>
 
 HYA_Quat QuatMul(HYA_Quat q1, HYA_Quat q2) {
   return (HYA_Quat){q1.x * q2.w + q1.y * q2.z - q1.z * q2.y + q1.w * q2.x,
@@ -147,6 +148,40 @@ void Mat4Make(float m[16], HYA_Vec3 t, HYA_Quat r, HYA_Vec3 s) {
   m[13] = t.y;
   m[14] = t.z;
   m[15] = 1.0f;
+}
+
+void Mat4Ident(float m[16]) {
+  m[0] = 1.0f;
+  m[1] = 0.0f;
+  m[2] = 0.0f;
+  m[3] = 0.0f;
+
+  m[4] = 0.0f;
+  m[5] = 1.0f;
+  m[6] = 0.0f;
+  m[7] = 0.0f;
+
+  m[8] = 0.0f;
+  m[9] = 0.0f;
+  m[10] = 1.0f;
+  m[11] = 0.0f;
+
+  m[12] = 0.0f;
+  m[13] = 0.0f;
+  m[14] = 0.0f;
+  m[15] = 1.0f;
+}
+
+void Mat4Mul(float result[16], const float lhs[16], const float rhs[16]) {
+  float tmp[16];
+  for (int c = 0; c < 4; ++c) {
+    for (int r = 0; r < 4; ++r) {
+      tmp[c * 4 + r] =
+          lhs[0 * 4 + r] * rhs[c * 4 + 0] + lhs[1 * 4 + r] * rhs[c * 4 + 1] +
+          lhs[2 * 4 + r] * rhs[c * 4 + 2] + lhs[3 * 4 + r] * rhs[c * 4 + 3];
+    }
+  }
+  memcpy(result, tmp, sizeof tmp);
 }
 
 HYA_Xform XformIdent() {

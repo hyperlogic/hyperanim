@@ -78,12 +78,13 @@ static void DrawAxes(Matrix m, float axis_len) {
   DrawLine3D(pos, Vector3Transform(z, m), BLUE);
 }
 
-#define MAX_NUM_XFORMS 256
+#define MAX_NUM_XFORMS 1024
 static HYA_Xform abs_xforms[MAX_NUM_XFORMS];
 
 static void DrawSkeleton(HYA_Skeleton *skeleton) {
   float m[16];
   Matrix mm;
+  assert(skeleton->num_joints <= MAX_NUM_XFORMS);
   for (size_t i = 0; i < skeleton->num_joints; i++) {
     HYA_Xform xform = skeleton->xforms[i];
     /*
@@ -146,8 +147,8 @@ static void UpdateAndDraw(void) {
 
   DrawFloorGrid(2000.0f, 20);
   Matrix origin = MatrixIdentity();
-  origin.m14 = 0.1f;
-  DrawAxes(origin, 100.0f);
+  origin.m14 = 0.01f;
+  DrawAxes(origin, 1.0f);
 
   DrawSkeleton(&(ctx.graph->tpose));
 
@@ -195,10 +196,10 @@ int main(int argc, char **argv) {
   // PrintGraph(graph);
 
   Vector3 target = {0.0f, 0.0f, 0.0f};
-  Vector3 offset = {100.0f, -100.0f, 50.0f};
+  Vector3 offset = {10.0f, -10.0f, 5.0f};
   Vector3 pos = Vector3Add(target, offset);
 
-  ctx.flycam = (FlyCam){.lin_speed = 100.0f,
+  ctx.flycam = (FlyCam){.lin_speed = 10.0f,
                         .rot_speed = 3.0f,
                         .up = {0.0f, 0.0f, 1.0f},
                         .position = pos,
