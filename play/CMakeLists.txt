@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
-set(PROJECT_NAME cook)
+set(PROJECT_NAME play)
 project(${PROJECT_NAME} LANGUAGES C)
 set(CMAKE_C_STANDARD 11)
 
@@ -16,7 +16,7 @@ add_executable(${PROJECT_NAME}
   ../src/loadgltf.c
   ../src/mathutil.c
   ../src/util.c
-  cook.c
+  play.c
 )
 
 if(UNIX AND NOT APPLE)

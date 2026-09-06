@@ -8,11 +8,10 @@ typedef struct Symbol {
   const char *key;
 } Symbol;
 
-// TODO: REPLACE with Symbol.
-typedef struct StrToIdPair {
+typedef struct StrToIntPair {
   const char *key;
   int value;
-} StrToIdPair;
+} StrToIntPair;
 
 typedef enum HYA_MemCategory {
   HYA_MEM_NODE = 0,
@@ -60,6 +59,5 @@ uint8_t *ContextAllocFromAligned(Context *ctx, HYA_MemCategory cat, void *addr,
 // Default alignment: safe for any built-in type.
 uint8_t *ContextAllocFrom(Context *ctx, HYA_MemCategory cat, void *addr,
                           size_t size);
-void ContextRelocAlias(Context *ctx, void *addr, void *ptr);
 
 #endif  // CONTEXT_H

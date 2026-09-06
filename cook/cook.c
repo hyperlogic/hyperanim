@@ -11,6 +11,7 @@
 #include "hyperanim.h"
 #include "json.h"
 #include "loadjson.h"
+#include "util.h"
 
 #define STB_DS_IMPLEMENTATION
 #include "stb_ds.h"
@@ -19,50 +20,8 @@ static void PrintUsage(const char *prog) {
   fprintf(stderr, "usage: %s -i <input.json> -o <output.hya>\n", prog);
 }
 
-static char *ReadFile(const char *filename, size_t *out_size) {
-  FILE *fp = fopen(filename, "rb");
-  if (!fp) {
-    return NULL;
-  }
-  if (fseek(fp, 0, SEEK_END) != 0) {
-    fclose(fp);
-    return NULL;
-  }
-  long size = ftell(fp);
-  if (size < 0) {
-    fclose(fp);
-    return NULL;
-  }
-
-  if (fseek(fp, 0, SEEK_SET) != 0) {
-    fclose(fp);
-    return NULL;
-  }
-
-  char *buf = malloc(size + 1);  // +1 for optional NUL terminator
-  if (!buf) {
-    fclose(fp);
-    return NULL;
-  }
-
-  size_t nread = fread(buf, 1, size, fp);
-  if (nread != (size_t)size) {  // short read = error
-    free(buf);
-    fclose(fp);
-    return NULL;
-  }
-
-  buf[size] = '\0';  // makes it safe to treat as a C string
-  fclose(fp);
-
-  if (out_size) {
-    *out_size = nread;
-  }
-  return buf;
-}
-
 /*
-HYAC
+HYAGRAPH
 num_offsets  size_t
 offset 0
 offset 1
@@ -75,7 +34,7 @@ HYA_Graph
 static HYA_Result CookGraph(Context *ctx, HYA_Graph *graph,
                             const char *filename) {
   FILE *fp = fopen(filename, "wb");
-  fwrite("HYAC", 4, 1, fp);
+  fwrite("HYAGRAPH", 8, 1, fp);
 
   // skip the first offset, because it's of the graph itself.
   size_t num_offsets = arrlen(ctx->reloc_arr) - 1;
@@ -120,7 +79,7 @@ int main(int argc, char **argv) {
         break;
       default:
         PrintUsage(argv[0]);
-        return 2;
+        return HYA_ERR_BAD_ARGS;
     }
   }
 
@@ -132,7 +91,7 @@ int main(int argc, char **argv) {
   }
 
   size_t buf_size = 0;
-  char *buf = ReadFile(input, &buf_size);
+  uint8_t *buf = ReadFile(input, &buf_size);
   if (!buf) {
     printf("ERROR: loading %s\n", input);
     res = HYA_ERR_FILE;
@@ -140,11 +99,11 @@ int main(int argc, char **argv) {
   }
 
   struct json_parse_result_s parse_result;
-  struct json_value_s *root = json_parse_ex(
+  struct json_value_s *json_root = json_parse_ex(
       (const void *)buf, buf_size, json_parse_flags_allow_location_information,
       NULL, NULL, &parse_result);
   free(buf);
-  if (!root) {
+  if (!json_root) {
     printf("ERROR: parsing %s\n", input);
     printf("JSON parse error %zu at line %zu, column %zu (byte offset %zu)\n",
            parse_result.error, parse_result.error_line_no,
@@ -178,7 +137,7 @@ int main(int argc, char **argv) {
     goto cleanup_2;
   }
 
-  res = InitGraph(graph, &ctx, root);
+  res = InitGraph(graph, &ctx, json_root);
   if (res != HYA_OK) {
     printf("ERROR: BuildGraph failed: %d\n", res);
     if (res == HYA_ERR_OUT_OF_MEMORY) {
@@ -214,7 +173,7 @@ int main(int argc, char **argv) {
 cleanup_2:
   ContextDeinit(&ctx);
 cleanup_1:
-  free(root);
+  free(json_root);
 cleanup_0:
 
   return res;

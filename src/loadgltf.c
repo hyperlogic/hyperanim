@@ -176,7 +176,7 @@ HYA_Result InitSkeletonFromGLTF(const char *filename, const char *root_joint,
     goto cleanup_2;
   }
   // joint_map will be used to determine parent id.
-  StrToIdPair *joint_map = NULL;
+  StrToIntPair *joint_map = NULL;
   shdefault(joint_map, -1);
 
   // iterate over node_arr and init joint_names & xforms

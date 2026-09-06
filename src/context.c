@@ -138,9 +138,3 @@ uint8_t *ContextAllocFrom(Context *ctx, HYA_MemCategory cat, void *addr,
   }
   return res;
 }
-
-void ContextRelocAlias(Context *ctx, void *addr, void *ptr) {
-  RelocInfo reloc = {(uint8_t *)addr - ctx->arena->base,
-                     (uint8_t *)ptr - ctx->arena->base, 0, 0};
-  arrpush(ctx->reloc_arr, reloc);
-}

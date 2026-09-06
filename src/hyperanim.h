@@ -22,7 +22,8 @@ typedef enum HYA_Result {
   HYA_ERR_SKELETON_MISMATCH,
   HYA_ERR_BAD_ARGS,
   HYA_ERR_FILE,
-  HYA_ERR_JSON_PARSE
+  HYA_ERR_JSON_PARSE,
+  HYA_ERR_BAD_MAGIC,
 } HYA_Result;
 
 typedef struct HYA_Vec3 {
@@ -144,7 +145,7 @@ typedef struct HYA_BlendNode {
   HYA_VAR_ID alpha_var;
 } HYA_BlendNode;
 
-// X(HYA_NodeType, snake_case_name, SCREAMING_SNAKE_CASE_NAME)
+// X(CamelCaseName, snake_case_name, SCREAMING_SNAKE_CASE_NAME)
 #define HYA_NODE_NAME_LIST                      \
   X(StateMachine, state_machine, STATE_MACHINE) \
   X(Motion, motion, MOTION)                     \
@@ -166,12 +167,6 @@ typedef struct HYA_Skeleton {
 typedef struct HYA_Graph {
   size_t version;
   HYA_NODE_ID root;
-
-#define X(Name, name, NAME)  \
-  size_t num_##name##_nodes; \
-  HYA_##Name##Node **name##_nodes;  // NOLINT
-  HYA_NODE_NAME_LIST
-#undef X
 
   // use HYA_NODE_ID to index into this array
   size_t num_node_ptrs;
