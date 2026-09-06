@@ -8,7 +8,11 @@
 #include <unistd.h>
 
 #include "arena.h"
+
+#define HYA_IMPLEMENTATION
 #include "hyperanim.h"
+#undef HYA_IMPLEMENTATION
+
 #include "json.h"
 #include "loadjson.h"
 #include "util.h"

@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2025 Anthony J. Thibault
+  Copyright (c) 2026 Anthony J. Thibault
   This software is licensed under the MIT License. See LICENSE for more
   details.
 */
@@ -186,3 +186,111 @@ typedef struct HYA_Graph {
 } HYA_Graph;
 
 #endif  // HYPERANIM_H
+
+#ifdef HYA_IMPLEMENTATION
+
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+static uint8_t *ReadFile(const char *filename, size_t *out_size) {
+  FILE *fp = fopen(filename, "rb");
+  if (!fp) {
+    return NULL;
+  }
+  if (fseek(fp, 0, SEEK_END) != 0) {
+    fclose(fp);
+    return NULL;
+  }
+  long size = ftell(fp);
+  if (size < 0) {
+    fclose(fp);
+    return NULL;
+  }
+
+  if (fseek(fp, 0, SEEK_SET) != 0) {
+    fclose(fp);
+    return NULL;
+  }
+
+  uint8_t *buf = malloc(size + 1);  // +1 for optional NUL terminator
+  if (!buf) {
+    fclose(fp);
+    return NULL;
+  }
+
+  size_t nread = fread(buf, 1, size, fp);
+  if (nread != (size_t)size) {  // short read = error
+    free(buf);
+    fclose(fp);
+    return NULL;
+  }
+
+  buf[size] = '\0';  // makes it safe to treat as a C string
+  fclose(fp);
+
+  if (out_size) {
+    *out_size = nread;
+  }
+  return buf;
+}
+
+/*
+HYAGRAPH
+num_offsets  size_t
+offset 0
+offset 1
+...
+offset n-1
+num_offsets  size_t
+HYA_Graph
+*/
+HYA_Result HYA_GraphCreate(HYA_Graph **graph, const char *filename) {
+  HYA_Result res = HYA_ERR_FAILURE;
+  size_t buf_size = 0;
+  uint8_t *buf = ReadFile(filename, &buf_size);
+  if (!buf) {
+    printf("ERROR: loading %s\n", filename);
+    res = HYA_ERR_FILE;
+    goto cleanup_0;
+  }
+
+  if (buf[0] != 'H' || buf[1] != 'Y' || buf[2] != 'A' || buf[3] != 'G' ||
+      buf[4] != 'R' || buf[5] != 'A' || buf[6] != 'P' || buf[7] != 'H') {
+    res = HYA_ERR_BAD_MAGIC;
+    goto cleanup_1;
+  }
+
+  uint8_t *p = buf + 8;
+  size_t num_offsets = *(size_t *)p;
+  uint8_t *base = p + sizeof(size_t) * (num_offsets + 2);
+  p += sizeof(size_t);
+  for (size_t i = 0; i < num_offsets; i++) {
+    size_t offset = *(size_t *)p;
+    printf("AJT: offset[%zu] = %zu\n", i, offset);
+    p += sizeof(size_t);
+    unsigned long *ptr = (unsigned long *)(base + offset);
+    *ptr = (unsigned long)(base + *ptr);
+  }
+
+  *graph = (HYA_Graph *)base;
+
+  // on success: don't free buf
+  return HYA_OK;
+
+cleanup_1:
+  free(buf);
+cleanup_0:
+
+  return res;
+}
+
+void HYA_GraphFree(HYA_Graph *graph) {
+  size_t *p = (size_t *)graph;
+  size_t num_offsets = *(p - 1);
+  uint8_t *buf = (uint8_t *)(p - (num_offsets + 3));
+  assert(buf[0] == 'H' && buf[1] == 'Y' && buf[2] == 'A' && buf[3] == 'G');
+  free(buf);
+}
+
+#endif  // HYA_IMPLEMENTATION
