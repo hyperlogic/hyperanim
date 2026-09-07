@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include <raylib.h>
+#include <rlgl.h>
 #include <raymath.h>
 
 #include "arena.h"
@@ -24,13 +25,45 @@
 #define STB_DS_IMPLEMENTATION
 #include "stb_ds.h"
 
+#define STR_MAX 1024
+
 static const Vector2 kMouseSens = {5.5f, -5.5f};
 
 // Global state for the main loop (needed for emscripten callback)
 static struct {
   FlyCam flycam;
   HYA_Graph *graph;
+  Model model;
 } ctx;
+
+/* Copies the directory part of `path` into `out` (no trailing slash).
+ * If `path` has no directory component, writes ".".
+ * Returns false if `out_size` is too small. */
+static bool dirname(const char *path, char *out, size_t out_size) {
+  const char *slash = strrchr(path, '/');
+#ifdef _WIN32
+  const char *bslash = strrchr(path, '\\');
+  if (!slash || (bslash && bslash > slash)) {
+    slash = bslash;
+  }
+#endif
+  if (!slash) {
+    if (out_size < 2) {
+      return false;
+    }
+    out[0] = '.';
+    out[1] = '\0';
+    return true;
+  }
+  size_t len = (size_t)(slash - path);
+  if (len == 0) len = 1; /* "/graph.json" -> "/" not "" */
+  if (len + 1 > out_size) {
+    return false;
+  }
+  memcpy(out, path, len);
+  out[len] = '\0';
+  return true;
+}
 
 static void PrintUsage(const char *prog) {
   fprintf(stderr, "usage: %s -i <input.hya>\n", prog);
@@ -145,12 +178,21 @@ static void UpdateAndDraw(void) {
                      60.0f, CAMERA_PERSPECTIVE};
   BeginMode3D(camera);
 
+  DrawModelEx(ctx.model, (Vector3){0.0f, 0.0f, 0.0f},
+              (Vector3){1.0f, 0.0f, 0.0f}, -90.0f,
+              (Vector3){100.0f, 100.0f, 100.0f}, WHITE);
+
   DrawFloorGrid(20.0f, 20);
+
   Matrix origin = MatrixIdentity();
   origin.m14 = 0.01f;
   DrawAxes(origin, 1.0f);
 
+  rlDrawRenderBatchActive();
+  rlDisableDepthTest();
   DrawSkeleton(&(ctx.graph->tpose));
+  rlDrawRenderBatchActive();
+  rlEnableDepthTest();
 
   EndMode3D();
 
@@ -175,6 +217,7 @@ int main(int argc, char **argv) {
     }
   }
 
+  SetConfigFlags(FLAG_WINDOW_RESIZABLE);
   InitWindow(screen_width, screen_height, "play");
 
   if (!input) {
@@ -195,6 +238,24 @@ int main(int argc, char **argv) {
 
   // PrintGraph(graph);
 
+  // Load model
+  char dir[STR_MAX];
+  if (!dirname(input, dir, STR_MAX)) {
+    fprintf(stderr, "ERROR: dirname failed = %s\n", input);
+    res = HYA_ERR_FAILURE;
+    goto cleanup_1;
+  }
+  const char *model_filename = "/anim/ybot.glb";
+  if (strlen(dir) + strlen(model_filename) > STR_MAX - 1) {
+    fprintf(stderr, "ERROR: %s/%s too large\n", dir, model_filename);
+  }
+  char full_model_filename[STR_MAX];
+  strcpy(full_model_filename, dir);
+  strcat(full_model_filename, model_filename);
+
+  ctx.model = LoadModel(full_model_filename);
+  Vector3 position = {0.0f, 0.0f, 0.0f};  // Set model world position
+
   Vector3 target = {0.0f, 1.0f, 0.0f};
   Vector3 offset = {2.0f, 0.0f, 2.0f};
   Vector3 pos = Vector3Add(target, offset);
@@ -210,10 +271,10 @@ int main(int argc, char **argv) {
     UpdateAndDraw();
   }
 
-  HYA_GraphFree(graph);
-
   res = HYA_OK;
 
+cleanup_1:
+  HYA_GraphFree(graph);
 cleanup_0:
   CloseWindow();
 
