@@ -61,10 +61,10 @@ static void Mat4ToRaylib(float *m, Matrix *mm) {
 static void DrawFloorGrid(float size, int32_t num_subdivs) {
   float d = size / num_subdivs;
   for (size_t i = 0; i < num_subdivs + 1; i++) {
-    DrawLine3D((Vector3){-size / 2.0f, (-size / 2.0f) + (d * i), 0.0f},
-               (Vector3){size / 2.0f, (-size / 2.0f) + (d * i), 0.0f}, BLACK);
-    DrawLine3D((Vector3){(-size / 2.0f) + (d * i), -size / 2.0f, 0.0f},
-               (Vector3){(-size / 2.0f) + (d * i), size / 2.0f, 0.0f}, BLACK);
+    DrawLine3D((Vector3){-size / 2.0f, 0.0f, (-size / 2.0f) + (d * i)},
+               (Vector3){size / 2.0f, 0.0f, (-size / 2.0f) + (d * i)}, BLACK);
+    DrawLine3D((Vector3){(-size / 2.0f) + (d * i), 0.0f, -size / 2.0f},
+               (Vector3){(-size / 2.0f) + (d * i), 0.0f, size / 2.0f}, BLACK);
   }
 }
 
@@ -101,7 +101,7 @@ static void DrawSkeleton(HYA_Skeleton *skeleton) {
     abs_xforms[i] = xform;
     Mat4Make(m, xform.t, xform.r, (HYA_Vec3){xform.s, xform.s, xform.s});
     Mat4ToRaylib(m, &mm);
-    DrawAxes(mm, 1.0f);
+    DrawAxes(mm, 10.0f);
   }
 }
 
@@ -145,7 +145,7 @@ static void UpdateAndDraw(void) {
                      60.0f, CAMERA_PERSPECTIVE};
   BeginMode3D(camera);
 
-  DrawFloorGrid(2000.0f, 20);
+  DrawFloorGrid(20.0f, 20);
   Matrix origin = MatrixIdentity();
   origin.m14 = 0.01f;
   DrawAxes(origin, 1.0f);
@@ -195,13 +195,13 @@ int main(int argc, char **argv) {
 
   // PrintGraph(graph);
 
-  Vector3 target = {0.0f, 0.0f, 0.0f};
-  Vector3 offset = {10.0f, -10.0f, 5.0f};
+  Vector3 target = {0.0f, 1.0f, 0.0f};
+  Vector3 offset = {2.0f, 0.0f, 2.0f};
   Vector3 pos = Vector3Add(target, offset);
 
   ctx.flycam = (FlyCam){.lin_speed = 10.0f,
                         .rot_speed = 3.0f,
-                        .up = {0.0f, 0.0f, 1.0f},
+                        .up = {0.0f, 1.0f, 0.0f},
                         .position = pos,
                         .target = target,
                         .velocity = {0.0f, 0.0f, 0.0f}};
