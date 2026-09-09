@@ -44,11 +44,11 @@ typedef struct Context {
   RelocInfo *reloc_arr;
 } Context;
 
+HYA_Result ContextAlloc(Context **ctx);
 HYA_Result ContextInit(Context *ctx, size_t arena_size, const char *filename);
-HYA_Result ContextCreate(Context **ctx, size_t arena_size,
-                         const char *filename);
-void ContextDeinit(Context *ctx);
-void ContextDestroy(Context *ctx);
+HYA_Result ContextDeinit(Context *ctx);
+HYA_Result ContextNew(Context **ctx, size_t arena_size, const char *filename);
+HYA_Result ContextDelete(Context *ctx);
 
 HYA_STR_ID ContextInternString(Context *ctx, const char *str);
 

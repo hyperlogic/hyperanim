@@ -190,6 +190,7 @@ static void UpdateAndDraw(void) {
   Transform *frames[1] = {xforms};
   anim.keyframePoses = frames;
   for (size_t i = 0; i < ctx.model.skeleton.boneCount; i++) {
+    // NOTE: These poses are in abs object space.
     anim.keyframePoses[0][i].scale = ctx.model.skeleton.bindPose[i].scale;
     anim.keyframePoses[0][i].rotation = ctx.model.skeleton.bindPose[i].rotation;
     anim.keyframePoses[0][i].translation =
@@ -250,7 +251,7 @@ int main(int argc, char **argv) {
   }
 
   HYA_Graph *graph;
-  res = HYA_GraphCreate(&graph, input);
+  res = HYA_GraphNew(&graph, input);
   if (res != HYA_OK) {
     fprintf(stderr, "ERROR: failed to load graph %s, result = %d\n", input,
             res);
@@ -296,7 +297,7 @@ int main(int argc, char **argv) {
   res = HYA_OK;
 
 cleanup_1:
-  HYA_GraphFree(graph);
+  HYA_GraphDelete(graph);
 cleanup_0:
   CloseWindow();
 

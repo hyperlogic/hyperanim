@@ -55,16 +55,25 @@ static bool basename(const char *path, char *out, size_t out_size) {
   return true;
 }
 
+HYA_Result ContextAlloc(Context **ctx) {
+  *ctx = (Context *)malloc(sizeof(Context));
+  if (!*ctx) {
+    return HYA_ERR_OUT_OF_MEMORY;
+  }
+  memset(*ctx, sizeof(Context), 0);
+  return HYA_OK;
+}
+
 HYA_Result ContextInit(Context *ctx, size_t arena_size, const char *filename) {
-  memset(ctx, 0, sizeof(Context));
   sh_new_strdup(ctx->node_map);  // map will own a copy of string keys.
   sh_new_strdup(ctx->type_map);
   sh_new_strdup(ctx->var_map);
   sh_new_strdup(ctx->str_map);
+  ctx->graph = NULL;
 
-  HYA_Result res = ArenaCreate(&ctx->arena, arena_size);
+  HYA_Result res = ArenaNew(&ctx->arena, arena_size);
   if (res != HYA_OK) {
-    printf("ERROR ArenaCreate failure %d\n", res);
+    printf("ERROR ArenaNew failure %d\n", res);
     return res;
   }
   if (!dirname(filename, ctx->dirname, CONTEXT_PATH_SIZE)) {
@@ -81,27 +90,34 @@ HYA_Result ContextInit(Context *ctx, size_t arena_size, const char *filename) {
   return HYA_OK;
 }
 
-HYA_Result ContextCreate(Context **ctx, size_t arena_size,
-                         const char *filename) {
-  *ctx = (Context *)malloc(sizeof(Context));
-  if (!*ctx) {
-    return HYA_ERR_OUT_OF_MEMORY;
-  }
-  return ContextInit(*ctx, arena_size, filename);
-}
-
-void ContextDeinit(Context *ctx) {
-  ArenaDestroy(ctx->arena);
+HYA_Result ContextDeinit(Context *ctx) {
+  ArenaDelete(ctx->arena);
   shfree(ctx->node_map);
   shfree(ctx->type_map);
   shfree(ctx->var_map);
   shfree(ctx->str_map);
   arrfree(ctx->reloc_arr);
+  memset(ctx, sizeof(Context), 0);
+  return HYA_OK;
 }
 
-void ContextDestroy(Context *ctx) {
-  ContextDeinit(ctx);
+HYA_Result ContextNew(Context **ctx, size_t arena_size, const char *filename) {
+  HYA_Result res;
+  res = ContextAlloc(ctx);
+  if (res != HYA_OK) {
+    return res;
+  }
+  return ContextInit(*ctx, arena_size, filename);
+}
+
+HYA_Result ContextDelete(Context *ctx) {
+  HYA_Result res;
+  res = ContextDeinit(ctx);
+  if (res != HYA_OK) {
+    return res;
+  }
   free(ctx);
+  return HYA_OK;
 }
 
 HYA_STR_ID ContextInternString(Context *ctx, const char *str) {

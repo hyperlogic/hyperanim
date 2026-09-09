@@ -18,10 +18,11 @@ typedef struct Arena {
   size_t capacity;
 } Arena;
 
+HYA_Result ArenaAlloc(Arena **arena);
 HYA_Result ArenaInit(Arena *arena, size_t arena_size);
-HYA_Result ArenaCreate(Arena **arena, size_t arena_size);
-void ArenaDeinit(Arena *arena);
-void ArenaDestroy(Arena *arena);
+HYA_Result ArenaDeinit(Arena *arena);
+HYA_Result ArenaNew(Arena **arena, size_t arena_size);
+HYA_Result ArenaDelete(Arena *arena);
 
 // Specific alignment: for minimal padding
 uint8_t *ArenaAllocFromAligned(Arena *a, size_t size, size_t align);

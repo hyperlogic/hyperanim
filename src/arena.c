@@ -7,8 +7,18 @@
 #include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "arena.h"
+
+HYA_Result ArenaAlloc(Arena **arena) {
+  *arena = (Arena *)malloc(sizeof(Arena));
+  if (!*arena) {
+    return HYA_ERR_OUT_OF_MEMORY;
+  }
+  memset(*arena, sizeof(Arena), 0);
+  return HYA_OK;
+}
 
 HYA_Result ArenaInit(Arena *arena, size_t arena_size) {
   assert(arena);
@@ -21,7 +31,14 @@ HYA_Result ArenaInit(Arena *arena, size_t arena_size) {
   return HYA_OK;
 }
 
-HYA_Result ArenaCreate(Arena **arena, size_t arena_size) {
+HYA_Result ArenaDeinit(Arena *arena) {
+  assert(arena);
+  free(arena->base);
+  memset(arena, sizeof(Arena), 0);
+  return HYA_OK;
+}
+
+HYA_Result ArenaNew(Arena **arena, size_t arena_size) {
   assert(arena);
   *arena = (Arena *)malloc(sizeof(Arena));
   if (!*arena) {
@@ -30,14 +47,14 @@ HYA_Result ArenaCreate(Arena **arena, size_t arena_size) {
   return ArenaInit(*arena, arena_size);
 }
 
-void ArenaDeinit(Arena *arena) {
-  assert(arena);
-  free(arena->base);
-}
-
-void ArenaDestroy(Arena *arena) {
-  ArenaDeinit(arena);
+HYA_Result ArenaDelete(Arena *arena) {
+  HYA_Result res;
+  res = ArenaDeinit(arena);
+  if (res != HYA_OK) {
+    return res;
+  }
   free(arena);
+  return HYA_OK;
 }
 
 // Round n up to a power-of-two alignment.

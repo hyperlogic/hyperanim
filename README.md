@@ -8,16 +8,10 @@ It's composed of 3 stages:
 
 Conventions
 ----------
-Create - allocate struct and initialize it (can fail)
-Init - initialize already existing structure (can fail)
-Deinit - free any memory/resources used by a struct, but NOT the struct itself.
-Destroy - frees the struct and any memory/resource used by it.
-
-// TODO change to this convention.
 Result FooAlloc(Foo **f);      // allocate only
+Result FooFree(Foo *f);        // deallocate only
 Result FooInit(Foo *f, ...);   // fills in a caller-owned Foo
-Result FooDeInit(Foo *f);      // releases what init acquired; f reusable
-Result FooFree(Foo *f);        // free() only, no deinit
+Result FooDeInit(Foo *f);      // clear Foo so it can be re-initialized. (no free)
 Result FooNew(Foo **f, ...);   // alloc + init
 Result FooDelete(Foo *f);      // deinit + free
 

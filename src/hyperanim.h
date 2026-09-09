@@ -245,7 +245,7 @@ offset n-1
 num_offsets  size_t
 HYA_Graph
 */
-HYA_Result HYA_GraphCreate(HYA_Graph **graph, const char *filename) {
+HYA_Result HYA_GraphNew(HYA_Graph **graph, const char *filename) {
   HYA_Result res = HYA_ERR_FAILURE;
   size_t buf_size = 0;
   uint8_t *buf = ReadFile(filename, &buf_size);
@@ -285,12 +285,13 @@ cleanup_0:
   return res;
 }
 
-void HYA_GraphFree(HYA_Graph *graph) {
+HYA_Result HYA_GraphDelete(HYA_Graph *graph) {
   size_t *p = (size_t *)graph;
   size_t num_offsets = *(p - 1);
   uint8_t *buf = (uint8_t *)(p - (num_offsets + 3));
   assert(buf[0] == 'H' && buf[1] == 'Y' && buf[2] == 'A' && buf[3] == 'G');
   free(buf);
+  return HYA_OK;
 }
 
 #endif  // HYA_IMPLEMENTATION
