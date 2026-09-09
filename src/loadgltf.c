@@ -99,7 +99,7 @@ static void GetAbsTransform(const cgltf_node *node, HYA_Vec3 *t, HYA_Quat *r,
 static bool IsSkeletonSame(cgltf_node **node_arr, const HYA_Skeleton *skeleton,
                            Context *ctx) {
   if (skeleton->num_joints != arrlen(node_arr)) {
-    printf("count mismatch %zu, %td\n", skeleton->num_joints, arrlen(node_arr));
+    printf("count mismatch %d, %td\n", skeleton->num_joints, arrlen(node_arr));
     return false;
   }
   for (ptrdiff_t i = 0; i < arrlen(node_arr); i++) {

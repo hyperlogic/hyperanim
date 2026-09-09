@@ -178,6 +178,28 @@ static void UpdateAndDraw(void) {
                      60.0f, CAMERA_PERSPECTIVE};
   BeginMode3D(camera);
 
+  static float t = 0.0f;
+  t += dt;
+  Quaternion r = QuaternionFromAxisAngle((Vector3){1.0f, 0.0f, 0.0f}, t);
+
+  // build a one frame animation.
+  ModelAnimation anim = {0};
+  anim.boneCount = ctx.model.skeleton.boneCount;
+  anim.keyframeCount = 1;
+  Transform xforms[ctx.model.skeleton.boneCount];
+  Transform *frames[1] = {xforms};
+  anim.keyframePoses = frames;
+  for (size_t i = 0; i < ctx.model.skeleton.boneCount; i++) {
+    anim.keyframePoses[0][i].scale = ctx.model.skeleton.bindPose[i].scale;
+    anim.keyframePoses[0][i].rotation = ctx.model.skeleton.bindPose[i].rotation;
+    anim.keyframePoses[0][i].translation =
+        ctx.model.skeleton.bindPose[i].translation;
+  }
+
+  // apply the one frame animation to the model.
+  UpdateModelAnimation(ctx.model, anim, 0);
+
+  // render the model
   DrawModelEx(ctx.model, (Vector3){0.0f, 0.0f, 0.0f},
               (Vector3){1.0f, 0.0f, 0.0f}, -90.0f,
               (Vector3){100.0f, 100.0f, 100.0f}, WHITE);
@@ -185,7 +207,7 @@ static void UpdateAndDraw(void) {
   DrawFloorGrid(20.0f, 20);
 
   Matrix origin = MatrixIdentity();
-  origin.m14 = 0.01f;
+  origin.m14 = 0.01f;  // offset a bit to reduce z-fighting with the grid.
   DrawAxes(origin, 1.0f);
 
   rlDrawRenderBatchActive();

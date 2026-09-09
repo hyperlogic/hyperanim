@@ -55,10 +55,10 @@ typedef struct HYA_FloatKey {
   float f;
 } HYA_FloatKey;
 
-typedef int HYA_STR_ID;
-
-typedef int HYA_VAR_ID;
-typedef int HYA_VAR_TYPE;
+typedef int32_t HYA_STR_ID;
+typedef int32_t HYA_VAR_ID;
+typedef int32_t HYA_VAR_TYPE;
+typedef int32_t HYA_SIZE;
 
 enum {
   HYA_VAR_TYPE_BOOL = 0,
@@ -80,27 +80,27 @@ typedef struct HYA_Transition {
 } HYA_Transition;
 
 typedef struct HYA_State {
-  int state_idx;
+  int32_t state_idx;
   HYA_STR_ID name;
   float interp_time;
-  size_t num_transitions;
+  HYA_SIZE num_transitions;
   HYA_Transition *transitions;
 } HYA_State;
 
-typedef int HYA_NODE_ID;
-typedef size_t HYA_NODE_TYPE;
+typedef int32_t HYA_NODE_ID;
+typedef int32_t HYA_NODE_TYPE;
 
 typedef struct HYA_Node {
   HYA_NODE_ID id;
   HYA_NODE_TYPE type;
   HYA_STR_ID name;
-  size_t num_children;
+  HYA_SIZE num_children;
   HYA_NODE_ID *children;
 } HYA_Node;
 
 typedef struct HYA_StateMachineNode {
   HYA_Node node;
-  size_t num_states;
+  HYA_SIZE num_states;
   HYA_State *states;
 } HYA_StateMachineNode;
 
@@ -115,11 +115,11 @@ typedef struct HYA_Channel {
 } HYA_Channel;
 
 typedef struct HYA_Sampler {
-  uint32_t time_idx;
-  uint32_t value_idx;
-  uint32_t num_keys;
-  uint16_t type;   // 1 = scalar, 2 = vec2, 3 = vec3, 4 = vec4
-  uint8_t interp;  // 0 = step, 1 = linear, 2 = cubic_spline
+  int32_t time_idx;
+  int32_t value_idx;
+  HYA_SIZE num_keys;
+  int16_t type;   // 1 = scalar, 2 = vec2, 3 = vec3, 4 = vec4
+  int8_t interp;  // 0 = step, 1 = linear, 2 = cubic_spline
 } HYA_Sampler;
 
 typedef struct HYA_Motion {
@@ -127,9 +127,9 @@ typedef struct HYA_Motion {
   float *values;
   HYA_Sampler *samplers;
   HYA_Channel *channels;
-  size_t num_samplers;
-  size_t num_channels;
-  unsigned int flags;
+  HYA_SIZE num_samplers;
+  HYA_SIZE num_channels;
+  uint32_t flags;
 } HYA_Motion;
 
 typedef struct HYA_MotionNode {
@@ -159,9 +159,9 @@ enum {
 
 typedef struct HYA_Skeleton {
   HYA_STR_ID *joint_names;
-  int *parent_indices;
+  int32_t *parent_indices;
   HYA_Xform *xforms;
-  size_t num_joints;
+  HYA_SIZE num_joints;
 } HYA_Skeleton;
 
 typedef struct HYA_Graph {
@@ -169,16 +169,16 @@ typedef struct HYA_Graph {
   HYA_NODE_ID root;
 
   // use HYA_NODE_ID to index into this array
-  size_t num_node_ptrs;
   HYA_Node **node_ptrs;
+  HYA_SIZE num_node_ptrs;
 
   // use HYA_STR_ID to index into this array
-  size_t num_str_ptrs;
   const char **str_ptrs;
+  HYA_SIZE num_str_ptrs;
 
   // use HYA_VAR_ID to index into this array
-  size_t num_vars;
   HYA_Var *vars;
+  HYA_SIZE num_vars;
 
   HYA_Skeleton tpose;
   HYA_STR_ID root_joint;

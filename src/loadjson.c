@@ -90,7 +90,7 @@ void PrintGraph(const HYA_Graph *graph) {
   printf("{\n");
   printf("  version = %zu\n", graph->version);
   printf("  root = %d\n", graph->root);
-  printf("  num_node_ptrs = %zu\n", graph->num_node_ptrs);
+  printf("  num_node_ptrs = %d\n", graph->num_node_ptrs);
 
   for (size_t i = 0; i < graph->num_node_ptrs; i++) {
     switch (graph->node_ptrs[i]->type) {
@@ -102,16 +102,16 @@ void PrintGraph(const HYA_Graph *graph) {
 #undef X
     }
   }
-  printf("  num_str_ptrs = %zu\n", graph->num_str_ptrs);
-  printf("  num_vars = %zu\n", graph->num_vars);
+  printf("  num_str_ptrs = %d\n", graph->num_str_ptrs);
+  printf("  num_vars = %d\n", graph->num_vars);
   printf("}\n");
 }
 
 void PrintNode(const HYA_Node *node, const HYA_Graph *graph) {
   printf("      id = %d\n", node->id);
-  printf("      type = %zu\n", node->type);
+  printf("      type = %d\n", node->type);
   printf("      name = %s\n", graph->str_ptrs[node->name]);
-  printf("      num_children = %zu\n", node->num_children);
+  printf("      num_children = %d\n", node->num_children);
   printf("      children = [");
   for (size_t i = 0; i < node->num_children; i++) {
     HYA_NODE_ID id = node->children[i];
@@ -340,7 +340,7 @@ HYA_Result InitGraph(HYA_Graph *graph, Context *ctx,
       ctx, HYA_MEM_VAR, &graph->vars, sizeof(HYA_Var) * graph->num_vars,
       _Alignof(HYA_Var));
   if (!graph->vars) {
-    fprintf(stderr, "failure allocating %zu HYA_Var*\n", graph->num_vars);
+    fprintf(stderr, "failure allocating %d HYA_Var*\n", graph->num_vars);
     return HYA_ERR_OUT_OF_MEMORY;
   }
   memset(graph->vars, 0, sizeof(HYA_Var) * graph->num_vars);  // NOLINT
