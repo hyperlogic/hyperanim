@@ -460,6 +460,8 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
   }
 
   // second pass: copy/unpack times and values.
+  motion->time_min = FLT_MAX;
+  motion->time_max = -FLT_MAX;
   size_t times_offset = 0;
   size_t values_offset = 0;
   for (size_t i = 0; i < anim->samplers_count; i++) {
@@ -474,6 +476,15 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
     motion->samplers[i].num_keys = times_count;
     motion->samplers[i].type = out_acc->type;
     motion->samplers[i].interp = anim->samplers[i].interpolation;
+
+    float first_time = motion->times[times_offset];
+    float last_time = motion->times[times_offset + times_count - 1];
+    if (first_time < motion->time_min) {
+      motion->time_min = first_time;
+    }
+    if (last_time > motion->time_max) {
+      motion->time_max = last_time;
+    }
 
     times_offset += times_count;
     values_offset += values_count;

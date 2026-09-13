@@ -125,6 +125,8 @@ typedef struct HYA_Sampler {
 typedef struct HYA_Motion {
   float *times;
   float *values;
+  float time_min;
+  float time_max;
   HYA_Sampler *samplers;
   HYA_Channel *channels;
   HYA_SIZE num_samplers;
@@ -356,8 +358,14 @@ HYA_Result HYA_GraphStateDelete(HYA_GraphState *state) {
 HYA_Result HYA_MotionNodeAnimate(const HYA_MotionNode *node, float dt,
                                  const HYA_Graph *graph,
                                  HYA_GraphState *graph_state) {
-  graph_state->t += dt;
   const HYA_Motion *m = &node->motion;
+
+  graph_state->t += dt;
+  if (node->loop) {
+    while (graph_state->t > m->time_max) {
+      graph_state->t -= m->time_max;
+    }
+  }
 
   for (HYA_SIZE i = 0; i < m->num_channels; i++) {
     const HYA_Channel *c = m->channels + i;
