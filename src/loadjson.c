@@ -8,6 +8,11 @@
 #include "loadgltf.h"
 #include "stb_ds.h"
 
+typedef struct StrToIntPair {
+  const char *key;
+  int value;
+} StrToIntPair;
+
 #define LOG_ERROR(fmt, ...) \
   fprintf(stderr, "ERROR: %s " fmt, __func__, ##__VA_ARGS__)
 

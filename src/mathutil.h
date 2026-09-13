@@ -11,15 +11,20 @@
 
 HYA_Quat QuatMul(HYA_Quat q1, HYA_Quat q2);
 HYA_Quat QuatInv(HYA_Quat q);
+float QuatNorm(HYA_Quat q);
+HYA_Quat QuatNormalize(HYA_Quat q);
 HYA_Vec3 Vec3Scale(float s, HYA_Vec3 v);
 HYA_Vec3 Vec3Add(HYA_Vec3 lhs, HYA_Vec3 rhs);
 float Vec3Norm(HYA_Vec3 v);
 HYA_Quat QuatFromAxisAngle(HYA_Vec3 axis, float angle);
 HYA_Vec3 Vec3Rotate(HYA_Quat q, HYA_Vec3 v);
+HYA_Vec3 Vec3XformPoint(HYA_Xform xform, HYA_Vec3 v);
+HYA_Vec3 Vec3XformVec(HYA_Xform xform, HYA_Vec3 v);
 void Mat4Decompose(const float m[16], HYA_Vec3 *t, HYA_Quat *r, HYA_Vec3 *s);
 void Mat4Make(float m[16], HYA_Vec3 t, HYA_Quat r, HYA_Vec3 s);
 void Mat4Ident(float m[16]);
 void Mat4Mul(float result[16], const float lhs[16], const float rhs[16]);
 HYA_Xform XformIdent();
 HYA_Xform XformMul(HYA_Xform lhs, HYA_Xform rhs);
+HYA_Xform XformInv(HYA_Xform xform);
 #endif  // MATH_H

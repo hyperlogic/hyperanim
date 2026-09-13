@@ -162,6 +162,7 @@ typedef struct HYA_Skeleton {
   int32_t *parent_indices;
   HYA_Xform *xforms;
   HYA_SIZE num_joints;
+  HYA_Xform root_xform;
 } HYA_Skeleton;
 
 typedef struct HYA_Graph {
@@ -185,6 +186,18 @@ typedef struct HYA_Graph {
 
 } HYA_Graph;
 
+typedef struct HYA_GraphState {
+  HYA_Skeleton skeleton;
+} HYA_GraphState;
+
+HYA_Result HYA_GraphNew(HYA_Graph **graph, const char *filename);
+HYA_Result HYA_GraphDelete(HYA_Graph *graph);
+
+HYA_Result HYA_GraphStateNew(HYA_GraphState **state, const HYA_Graph *graph);
+HYA_Result HYA_GraphStateDelete(HYA_GraphState *state);
+
+HYA_Result HYA_GraphAnimate(const HYA_Graph *graph, HYA_GraphState *state);
+
 #endif  // HYPERANIM_H
 
 #ifdef HYA_IMPLEMENTATION
@@ -193,7 +206,7 @@ typedef struct HYA_Graph {
 #include <stdio.h>
 #include <stdlib.h>
 
-static uint8_t *ReadFile(const char *filename, size_t *out_size) {
+static uint8_t *HYA_ReadFile(const char *filename, size_t *out_size) {
   FILE *fp = fopen(filename, "rb");
   if (!fp) {
     return NULL;
@@ -248,7 +261,7 @@ HYA_Graph
 HYA_Result HYA_GraphNew(HYA_Graph **graph, const char *filename) {
   HYA_Result res = HYA_ERR_FAILURE;
   size_t buf_size = 0;
-  uint8_t *buf = ReadFile(filename, &buf_size);
+  uint8_t *buf = HYA_ReadFile(filename, &buf_size);
   if (!buf) {
     printf("ERROR: loading %s\n", filename);
     res = HYA_ERR_FILE;
@@ -291,6 +304,111 @@ HYA_Result HYA_GraphDelete(HYA_Graph *graph) {
   uint8_t *buf = (uint8_t *)(p - (num_offsets + 3));
   assert(buf[0] == 'H' && buf[1] == 'Y' && buf[2] == 'A' && buf[3] == 'G');
   free(buf);
+  return HYA_OK;
+}
+
+HYA_Result HYA_GraphStateNew(HYA_GraphState **state, const HYA_Graph *graph) {
+  HYA_GraphState *s = (HYA_GraphState *)malloc(sizeof(HYA_GraphState));
+  if (!s) {
+    return HYA_ERR_OUT_OF_MEMORY;
+  }
+  memset(s, 0, sizeof(HYA_GraphState));
+
+  // alloc & init state->skeleton with graph->tpose
+  HYA_SIZE num_joints = graph->tpose.num_joints;
+  s->skeleton.joint_names =
+      (HYA_STR_ID *)malloc(sizeof(HYA_STR_ID) * num_joints);
+  if (!s->skeleton.joint_names) {
+    return HYA_ERR_OUT_OF_MEMORY;
+  }
+  memcpy(s->skeleton.joint_names, graph->tpose.joint_names,
+         sizeof(HYA_STR_ID) * num_joints);
+  s->skeleton.parent_indices = (int32_t *)malloc(sizeof(int32_t) * num_joints);
+  if (!s->skeleton.parent_indices) {
+    return HYA_ERR_OUT_OF_MEMORY;
+  }
+  memcpy(s->skeleton.parent_indices, graph->tpose.parent_indices,
+         sizeof(int32_t) * num_joints);
+  s->skeleton.xforms = (HYA_Xform *)malloc(sizeof(HYA_Xform) * num_joints);
+  if (!s->skeleton.xforms) {
+    return HYA_ERR_OUT_OF_MEMORY;
+  }
+  memcpy(s->skeleton.xforms, graph->tpose.xforms,
+         sizeof(HYA_Xform) * num_joints);
+  s->skeleton.num_joints = num_joints;
+  memcpy(&s->skeleton.root_xform, &graph->tpose.root_xform, sizeof(HYA_Xform));
+
+  *state = s;
+  return HYA_OK;
+}
+
+HYA_Result HYA_GraphStateDelete(HYA_GraphState *state) {
+  // free state->skeleton
+  free(state->skeleton.joint_names);
+  free(state->skeleton.parent_indices);
+  free(state->skeleton.xforms);
+  free(state);
+  return HYA_OK;
+}
+
+HYA_Result HYA_GraphAnimate(const HYA_Graph *graph, HYA_GraphState *state) {
+  // HACK play "first" frame of first motion node
+  for (HYA_SIZE i = 0; i < graph->num_node_ptrs; i++) {
+    const HYA_Node *node = graph->node_ptrs[i];
+    if (node->type == HYA_NODE_TYPE_MOTION) {
+      const HYA_MotionNode *motion_node = (const HYA_MotionNode *)node;
+      const HYA_Motion *m = &motion_node->motion;
+      for (HYA_SIZE j = 0; j < m->num_channels; j++) {
+        const HYA_Channel *c = m->channels + j;
+        const HYA_Sampler *s = m->samplers + c->sampler_idx;
+        const float *t = m->times + s->time_idx;
+        const float *v = m->values + s->value_idx;
+        assert(*t >= 0.0);
+        assert(c->joint_idx >= 0 && c->joint_idx < state->skeleton.num_joints);
+        HYA_Xform *xform = state->skeleton.xforms + c->joint_idx;
+        switch (c->path) {
+          case 1:  // translation
+            if (s->type != 3) {
+              fprintf(
+                  stderr,
+                  "ERROR: unexpected type %d for translation in sampler %d\n",
+                  s->type, c->sampler_idx);
+              return HYA_ERR_UNSUPPORTED;
+            }
+            xform->t.x = v[0];
+            xform->t.y = v[1];
+            xform->t.z = v[2];
+            break;
+          case 2:  // rotation
+            if (s->type != 4) {
+              fprintf(stderr,
+                      "ERROR: unexpected type %d for rotation in sampler %d\n",
+                      s->type, c->sampler_idx);
+              return HYA_ERR_UNSUPPORTED;
+            }
+            xform->r.x = v[0];
+            xform->r.y = v[1];
+            xform->r.z = v[2];
+            xform->r.w = v[3];
+            break;
+          case 3:  // scale
+            if (s->type != 3) {
+              fprintf(stderr,
+                      "ERROR: unexpected type %d for scale in sampler %d\n",
+                      s->type, c->sampler_idx);
+              return HYA_ERR_UNSUPPORTED;
+            }
+            xform->s = v[0];
+            break;
+          default:
+            fprintf(stderr, "ERROR: unknown path %d in sampler %d\n", s->type,
+                    c->sampler_idx);
+            break;
+        }
+      }
+      break;
+    }
+  }
   return HYA_OK;
 }
 

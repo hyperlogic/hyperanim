@@ -16,6 +16,11 @@
 
 #include "mathutil.h"
 
+typedef struct StrToIntPair {
+  const char *key;
+  int value;
+} StrToIntPair;
+
 #define LOG_ERROR(fmt, ...) \
   fprintf(stderr, "ERROR: %s " fmt, __func__, ##__VA_ARGS__)
 
@@ -235,7 +240,11 @@ HYA_Result InitSkeletonFromGLTF(const char *filename, const char *root_joint,
     HYA_Vec3 t, s;
     HYA_Quat r;
     if (node == root_node) {
-      GetAbsTransform(node, &t, &r, &s);
+      GetAbsTransform(node->parent, &t, &r, &s);
+      skeleton->root_xform.t = t;
+      skeleton->root_xform.r = r;
+      skeleton->root_xform.s = s.x;
+      GetRelTransform(node, &t, &r, &s);
     } else {
       GetRelTransform(node, &t, &r, &s);
     }

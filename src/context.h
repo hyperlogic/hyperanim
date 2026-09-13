@@ -8,11 +8,6 @@ typedef struct Symbol {
   const char *key;
 } Symbol;
 
-typedef struct StrToIntPair {
-  const char *key;
-  int value;
-} StrToIntPair;
-
 typedef enum HYA_MemCategory {
   HYA_MEM_NODE = 0,
   HYA_MEM_STRING,

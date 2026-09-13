@@ -17,6 +17,13 @@ HYA_Quat QuatMul(HYA_Quat q1, HYA_Quat q2) {
 }
 
 HYA_Quat QuatInv(HYA_Quat q) { return (HYA_Quat){-q.x, -q.y, -q.z, q.w}; }
+float QuatNorm(HYA_Quat q) {
+  return sqrtf(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
+}
+HYA_Quat QuatNormalize(HYA_Quat q) {
+  float norm = QuatNorm(q);
+  return (HYA_Quat){q.x / norm, q.y / norm, q.z / norm, q.w / norm};
+}
 
 HYA_Vec3 Vec3Scale(float s, HYA_Vec3 v) {
   return (HYA_Vec3){s * v.x, s * v.y, s * v.z};
@@ -30,6 +37,14 @@ HYA_Vec3 Vec3Rotate(HYA_Quat q, HYA_Vec3 v) {
   HYA_Quat tmp =
       QuatMul(QuatMul(q, (HYA_Quat){v.x, v.y, v.z, 0.0f}), QuatInv(q));
   return (HYA_Vec3){tmp.x, tmp.y, tmp.z};
+}
+
+HYA_Vec3 Vec3XformPoint(HYA_Xform xform, HYA_Vec3 v) {
+  return Vec3Add(xform.t, Vec3Rotate(xform.r, Vec3Scale(xform.s, v)));
+}
+
+HYA_Vec3 Vec3XformVec(HYA_Xform xform, HYA_Vec3 v) {
+  return Vec3Rotate(xform.r, Vec3Scale(xform.s, v));
 }
 
 float Vec3Norm(HYA_Vec3 v) { return sqrtf(v.x * v.x + v.y * v.y + v.z * v.z); }
@@ -194,5 +209,13 @@ HYA_Xform XformMul(HYA_Xform lhs, HYA_Xform rhs) {
   result.t = Vec3Add(lhs.t, Vec3Rotate(lhs.r, Vec3Scale(lhs.s, rhs.t)));
   result.r = QuatMul(lhs.r, rhs.r);
   result.s = lhs.s * rhs.s;
+  return result;
+}
+
+HYA_Xform XformInv(HYA_Xform xform) {
+  HYA_Xform result;
+  result.r = QuatInv(xform.r);
+  result.s = 1.0f / xform.s;
+  result.t = Vec3Scale(-result.s, Vec3Rotate(result.r, xform.t));
   return result;
 }

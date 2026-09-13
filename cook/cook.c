@@ -95,7 +95,7 @@ int main(int argc, char **argv) {
   }
 
   size_t buf_size = 0;
-  uint8_t *buf = ReadFile(input, &buf_size);
+  uint8_t *buf = HYA_ReadFile(input, &buf_size);
   if (!buf) {
     printf("ERROR: loading %s\n", input);
     res = HYA_ERR_FILE;
