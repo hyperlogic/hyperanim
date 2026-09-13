@@ -188,6 +188,7 @@ typedef struct HYA_Graph {
 
 typedef struct HYA_GraphState {
   HYA_Skeleton skeleton;
+  float t;
 } HYA_GraphState;
 
 HYA_Result HYA_GraphNew(HYA_Graph **graph, const char *filename);
@@ -196,7 +197,8 @@ HYA_Result HYA_GraphDelete(HYA_Graph *graph);
 HYA_Result HYA_GraphStateNew(HYA_GraphState **state, const HYA_Graph *graph);
 HYA_Result HYA_GraphStateDelete(HYA_GraphState *state);
 
-HYA_Result HYA_GraphAnimate(const HYA_Graph *graph, HYA_GraphState *state);
+HYA_Result HYA_GraphAnimate(const HYA_Graph *graph, float dt,
+                            HYA_GraphState *state);
 
 #endif  // HYPERANIM_H
 
@@ -351,60 +353,91 @@ HYA_Result HYA_GraphStateDelete(HYA_GraphState *state) {
   return HYA_OK;
 }
 
-HYA_Result HYA_GraphAnimate(const HYA_Graph *graph, HYA_GraphState *state) {
+HYA_Result HYA_MotionNodeAnimate(const HYA_MotionNode *node, float dt,
+                                 const HYA_Graph *graph,
+                                 HYA_GraphState *graph_state) {
+  graph_state->t += dt;
+  const HYA_Motion *m = &node->motion;
+
+  for (HYA_SIZE i = 0; i < m->num_channels; i++) {
+    const HYA_Channel *c = m->channels + i;
+    const HYA_Sampler *s = m->samplers + c->sampler_idx;
+    const float *t = m->times + s->time_idx;
+
+    HYA_SIZE prev_j, next_j;
+    float alpha;
+    if (graph_state->t < t[0]) {
+      prev_j = 0;
+      next_j = 0;
+    } else if (graph_state->t > t[s->num_keys - 1]) {
+      prev_j = s->num_keys - 1;
+      next_j = s->num_keys - 1;
+    } else {
+      // O(n) search. AJT: TODO: cache previous j.
+      HYA_SIZE j = 0;
+      while (t[j] < graph_state->t && j < s->num_keys) {
+        j++;
+      }
+      prev_j = j > 0 ? (j - 1) : 0;
+      next_j = j;
+    }
+    assert(prev_j < s->num_keys);
+    const float *v = m->values + s->value_idx + (prev_j * s->type);
+    assert(c->joint_idx >= 0 &&
+           c->joint_idx < graph_state->skeleton.num_joints);
+    HYA_Xform *xform = graph_state->skeleton.xforms + c->joint_idx;
+    switch (c->path) {
+      case 1:  // translation
+        if (s->type != 3) {
+          fprintf(stderr,
+                  "ERROR: unexpected type %d for translation in sampler %d\n",
+                  s->type, c->sampler_idx);
+          return HYA_ERR_UNSUPPORTED;
+        }
+        xform->t.x = v[0];
+        xform->t.y = v[1];
+        xform->t.z = v[2];
+        break;
+      case 2:  // rotation
+        if (s->type != 4) {
+          fprintf(stderr,
+                  "ERROR: unexpected type %d for rotation in sampler %d\n",
+                  s->type, c->sampler_idx);
+          return HYA_ERR_UNSUPPORTED;
+        }
+        xform->r.x = v[0];
+        xform->r.y = v[1];
+        xform->r.z = v[2];
+        xform->r.w = v[3];
+        break;
+      case 3:  // scale
+        if (s->type != 3) {
+          fprintf(stderr, "ERROR: unexpected type %d for scale in sampler %d\n",
+                  s->type, c->sampler_idx);
+          return HYA_ERR_UNSUPPORTED;
+        }
+        xform->s = v[0];
+        break;
+      default:
+        fprintf(stderr, "ERROR: unknown path %d in sampler %d\n", s->type,
+                c->sampler_idx);
+        break;
+    }
+  }
+  return HYA_OK;
+}
+
+HYA_Result HYA_GraphAnimate(const HYA_Graph *graph, float dt,
+                            HYA_GraphState *graph_state) {
   // HACK play "first" frame of first motion node
   for (HYA_SIZE i = 0; i < graph->num_node_ptrs; i++) {
     const HYA_Node *node = graph->node_ptrs[i];
     if (node->type == HYA_NODE_TYPE_MOTION) {
       const HYA_MotionNode *motion_node = (const HYA_MotionNode *)node;
-      const HYA_Motion *m = &motion_node->motion;
-      for (HYA_SIZE j = 0; j < m->num_channels; j++) {
-        const HYA_Channel *c = m->channels + j;
-        const HYA_Sampler *s = m->samplers + c->sampler_idx;
-        const float *t = m->times + s->time_idx;
-        const float *v = m->values + s->value_idx;
-        assert(*t >= 0.0);
-        assert(c->joint_idx >= 0 && c->joint_idx < state->skeleton.num_joints);
-        HYA_Xform *xform = state->skeleton.xforms + c->joint_idx;
-        switch (c->path) {
-          case 1:  // translation
-            if (s->type != 3) {
-              fprintf(
-                  stderr,
-                  "ERROR: unexpected type %d for translation in sampler %d\n",
-                  s->type, c->sampler_idx);
-              return HYA_ERR_UNSUPPORTED;
-            }
-            xform->t.x = v[0];
-            xform->t.y = v[1];
-            xform->t.z = v[2];
-            break;
-          case 2:  // rotation
-            if (s->type != 4) {
-              fprintf(stderr,
-                      "ERROR: unexpected type %d for rotation in sampler %d\n",
-                      s->type, c->sampler_idx);
-              return HYA_ERR_UNSUPPORTED;
-            }
-            xform->r.x = v[0];
-            xform->r.y = v[1];
-            xform->r.z = v[2];
-            xform->r.w = v[3];
-            break;
-          case 3:  // scale
-            if (s->type != 3) {
-              fprintf(stderr,
-                      "ERROR: unexpected type %d for scale in sampler %d\n",
-                      s->type, c->sampler_idx);
-              return HYA_ERR_UNSUPPORTED;
-            }
-            xform->s = v[0];
-            break;
-          default:
-            fprintf(stderr, "ERROR: unknown path %d in sampler %d\n", s->type,
-                    c->sampler_idx);
-            break;
-        }
+      HYA_Result res =
+          HYA_MotionNodeAnimate(motion_node, dt, graph, graph_state);
+      if (res != HYA_OK) {
+        return res;
       }
       break;
     }

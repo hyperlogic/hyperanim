@@ -205,11 +205,7 @@ static void UpdateAndDraw(void) {
                      60.0f, CAMERA_PERSPECTIVE};
   BeginMode3D(camera);
 
-  static float t = 0.0f;
-  t += dt;
-  Quaternion r = QuaternionFromAxisAngle((Vector3){1.0f, 0.0f, 0.0f}, t);
-
-  HYA_Result res = HYA_GraphAnimate(ctx.graph, ctx.graph_state);
+  HYA_Result res = HYA_GraphAnimate(ctx.graph, dt, ctx.graph_state);
   if (res != HYA_OK) {
     fprintf(stderr, "ERROR: HYA_GraphAnimate() failed, result = %d\n", res);
   }
