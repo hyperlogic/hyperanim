@@ -16,7 +16,7 @@ HYA_Result ArenaAlloc(Arena **arena) {
   if (!*arena) {
     return HYA_ERR_OUT_OF_MEMORY;
   }
-  memset(*arena, sizeof(Arena), 0);
+  memset(*arena, 0, sizeof(Arena));
   return HYA_OK;
 }
 
@@ -34,7 +34,7 @@ HYA_Result ArenaInit(Arena *arena, size_t arena_size) {
 HYA_Result ArenaDeinit(Arena *arena) {
   assert(arena);
   free(arena->base);
-  memset(arena, sizeof(Arena), 0);
+  memset(arena, 0, sizeof(Arena));
   return HYA_OK;
 }
 

@@ -137,7 +137,7 @@ static HYA_Result BuildNodes(struct json_value_s *value, HYA_Graph *graph,
   // node types are valid.
   JSON_VAL_TO_ARR(value, array);
   size_t node_count = array->length;
-  int *node_type_arr = malloc(sizeof(int) * shlen(ctx->node_map));
+  int *node_type_arr = malloc(sizeof(int) * node_count);
   int i = 0;
   JSON_ARR_FOR_EACH(array, arr_elem) {
     bool found_name = false;

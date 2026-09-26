@@ -126,7 +126,7 @@ int main(int argc, char **argv) {
 
 #define X(Name, name, NAME)                            \
   assert(shlen(ctx.type_map) == HYA_NODE_TYPE_##NAME); \
-  shputs(ctx.type_map, (Symbol) { #name });
+  shputs(ctx.type_map, (Symbol){#name});
 
   HYA_NODE_NAME_LIST
 #undef X
