@@ -9,13 +9,16 @@
 
 #include "hyperanim.h"
 
+float FloatLerp(float a, float b, float alpha);
 HYA_Quat QuatMul(HYA_Quat q1, HYA_Quat q2);
 HYA_Quat QuatInv(HYA_Quat q);
 float QuatNorm(HYA_Quat q);
 HYA_Quat QuatNormalize(HYA_Quat q);
+HYA_Quat QuatLerp(HYA_Quat a, HYA_Quat b, float alpha);
 HYA_Vec3 Vec3Scale(float s, HYA_Vec3 v);
 HYA_Vec3 Vec3Add(HYA_Vec3 lhs, HYA_Vec3 rhs);
 float Vec3Norm(HYA_Vec3 v);
+HYA_Vec3 Vec3Lerp(HYA_Vec3 a, HYA_Vec3 b, float alpha);
 HYA_Quat QuatFromAxisAngle(HYA_Vec3 axis, float angle);
 HYA_Vec3 Vec3Rotate(HYA_Quat q, HYA_Vec3 v);
 HYA_Vec3 Vec3XformPoint(HYA_Xform xform, HYA_Vec3 v);

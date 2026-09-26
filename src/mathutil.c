@@ -9,6 +9,8 @@
 #include <math.h>
 #include <string.h>
 
+float FloatLerp(float a, float b, float alpha) { return a + alpha * (b - a); }
+
 HYA_Quat QuatMul(HYA_Quat q1, HYA_Quat q2) {
   return (HYA_Quat){q1.x * q2.w + q1.y * q2.z - q1.z * q2.y + q1.w * q2.x,
                     -q1.x * q2.z + q1.y * q2.w + q1.z * q2.x + q1.w * q2.y,
@@ -17,12 +19,28 @@ HYA_Quat QuatMul(HYA_Quat q1, HYA_Quat q2) {
 }
 
 HYA_Quat QuatInv(HYA_Quat q) { return (HYA_Quat){-q.x, -q.y, -q.z, q.w}; }
+
 float QuatNorm(HYA_Quat q) {
   return sqrtf(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
 }
+
 HYA_Quat QuatNormalize(HYA_Quat q) {
   float norm = QuatNorm(q);
   return (HYA_Quat){q.x / norm, q.y / norm, q.z / norm, q.w / norm};
+}
+
+HYA_Quat QuatLerp(HYA_Quat a, HYA_Quat b, float alpha) {
+  float dot = a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
+  if (dot < 0) {
+    b = (HYA_Quat){-b.x, -b.y, -b.z, -b.w};
+  }
+  HYA_Quat q = {
+      a.x + alpha * (b.x - a.x),
+      a.y + alpha * (b.y - a.y),
+      a.z + alpha * (b.z - a.z),
+      a.w + alpha * (b.w - a.w),
+  };
+  return QuatNormalize(q);
 }
 
 HYA_Vec3 Vec3Scale(float s, HYA_Vec3 v) {
@@ -48,6 +66,11 @@ HYA_Vec3 Vec3XformVec(HYA_Xform xform, HYA_Vec3 v) {
 }
 
 float Vec3Norm(HYA_Vec3 v) { return sqrtf(v.x * v.x + v.y * v.y + v.z * v.z); }
+
+HYA_Vec3 Vec3Lerp(HYA_Vec3 a, HYA_Vec3 b, float alpha) {
+  return (HYA_Vec3){a.x + alpha * (b.x - a.x), a.y + alpha * (b.y - a.y),
+                    a.z + alpha * (b.z - a.z)};
+}
 
 HYA_Quat QuatFromAxisAngle(HYA_Vec3 axis, float angle) {
   float norm = Vec3Norm(axis);

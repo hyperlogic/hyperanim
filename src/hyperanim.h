@@ -40,21 +40,6 @@ typedef struct HYA_Xform {
   HYA_Quat r;  // rotation
 } HYA_Xform;
 
-typedef struct HYA_Vec3Key {
-  float time;
-  HYA_Vec3 v;
-} HYA_Vec3Key;
-
-typedef struct HYA_QuatKey {
-  float time;
-  HYA_Quat q;
-} HYA_QuatKey;
-
-typedef struct HYA_FloatKey {
-  float time;
-  float f;
-} HYA_FloatKey;
-
 typedef int32_t HYA_STR_ID;
 typedef int32_t HYA_VAR_ID;
 typedef int32_t HYA_VAR_TYPE;
@@ -108,30 +93,14 @@ enum {
   HYA_MOTION_LOOP = (1 << 0),
 };
 
-typedef struct HYA_Channel {
-  int32_t sampler_idx;
-  int32_t joint_idx;
-  uint8_t path;  // 1 = translation, 2 = rotation, 3 = scale
-} HYA_Channel;
-
-typedef struct HYA_Sampler {
-  int32_t time_idx;
-  int32_t value_idx;
-  HYA_SIZE num_keys;
-  int16_t type;   // 1 = scalar, 2 = vec2, 3 = vec3, 4 = vec4
-  int8_t interp;  // 0 = step, 1 = linear, 2 = cubic_spline
-} HYA_Sampler;
-
 typedef struct HYA_Motion {
-  float *times;
-  float *values;
-  float time_min;
-  float time_max;
-  HYA_Sampler *samplers;
-  HYA_Channel *channels;
-  HYA_SIZE num_samplers;
-  HYA_SIZE num_channels;
+  float *s_keys;
+  HYA_Quat *r_keys;
+  HYA_Vec3 *t_keys;
+  HYA_SIZE num_keys;
+  HYA_SIZE num_joints;
   uint32_t flags;
+  float sample_rate;
 } HYA_Motion;
 
 typedef struct HYA_MotionNode {
@@ -361,77 +330,18 @@ HYA_Result HYA_MotionNodeAnimate(const HYA_MotionNode *node, float dt,
   const HYA_Motion *m = &node->motion;
 
   graph_state->t += dt;
-  if (node->loop) {
-    while (graph_state->t > m->time_max) {
-      graph_state->t -= m->time_max;
-    }
+  if (graph_state->t > m->num_keys / m->sample_rate) {
+    graph_state->t -= m->num_keys / m->sample_rate;
+  }
+  int i = graph_state->t / m->sample_rate;
+
+  for (HYA_SIZE j = 0; j < m->num_joints; j++) {
+    HYA_Xform *xform = graph_state->skeleton.xforms + j;
+    xform->s = m->s_keys[i * m->num_joints + j];
+    xform->r = m->r_keys[i * m->num_joints + j];
+    xform->t = m->t_keys[i * m->num_joints + j];
   }
 
-  for (HYA_SIZE i = 0; i < m->num_channels; i++) {
-    const HYA_Channel *c = m->channels + i;
-    const HYA_Sampler *s = m->samplers + c->sampler_idx;
-    const float *t = m->times + s->time_idx;
-
-    HYA_SIZE prev_j, next_j;
-    float alpha;
-    if (graph_state->t < t[0]) {
-      prev_j = 0;
-      next_j = 0;
-    } else if (graph_state->t > t[s->num_keys - 1]) {
-      prev_j = s->num_keys - 1;
-      next_j = s->num_keys - 1;
-    } else {
-      // O(n) search. AJT: TODO: cache previous j.
-      HYA_SIZE j = 0;
-      while (t[j] < graph_state->t && j < s->num_keys) {
-        j++;
-      }
-      prev_j = j > 0 ? (j - 1) : 0;
-      next_j = j;
-    }
-    assert(prev_j < s->num_keys);
-    const float *v = m->values + s->value_idx + (prev_j * s->type);
-    assert(c->joint_idx >= 0 &&
-           c->joint_idx < graph_state->skeleton.num_joints);
-    HYA_Xform *xform = graph_state->skeleton.xforms + c->joint_idx;
-    switch (c->path) {
-      case 1:  // translation
-        if (s->type != 3) {
-          fprintf(stderr,
-                  "ERROR: unexpected type %d for translation in sampler %d\n",
-                  s->type, c->sampler_idx);
-          return HYA_ERR_UNSUPPORTED;
-        }
-        xform->t.x = v[0];
-        xform->t.y = v[1];
-        xform->t.z = v[2];
-        break;
-      case 2:  // rotation
-        if (s->type != 4) {
-          fprintf(stderr,
-                  "ERROR: unexpected type %d for rotation in sampler %d\n",
-                  s->type, c->sampler_idx);
-          return HYA_ERR_UNSUPPORTED;
-        }
-        xform->r.x = v[0];
-        xform->r.y = v[1];
-        xform->r.z = v[2];
-        xform->r.w = v[3];
-        break;
-      case 3:  // scale
-        if (s->type != 3) {
-          fprintf(stderr, "ERROR: unexpected type %d for scale in sampler %d\n",
-                  s->type, c->sampler_idx);
-          return HYA_ERR_UNSUPPORTED;
-        }
-        xform->s = v[0];
-        break;
-      default:
-        fprintf(stderr, "ERROR: unknown path %d in sampler %d\n", s->type,
-                c->sampler_idx);
-        break;
-    }
-  }
   return HYA_OK;
 }
 

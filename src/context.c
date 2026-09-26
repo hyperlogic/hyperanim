@@ -60,7 +60,7 @@ HYA_Result ContextAlloc(Context **ctx) {
   if (!*ctx) {
     return HYA_ERR_OUT_OF_MEMORY;
   }
-  memset(*ctx, sizeof(Context), 0);
+  memset(*ctx, 0, sizeof(Context));
   return HYA_OK;
 }
 
@@ -97,7 +97,7 @@ HYA_Result ContextDeinit(Context *ctx) {
   shfree(ctx->var_map);
   shfree(ctx->str_map);
   arrfree(ctx->reloc_arr);
-  memset(ctx, sizeof(Context), 0);
+  memset(ctx, 0, sizeof(Context));
   return HYA_OK;
 }
 

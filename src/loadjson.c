@@ -329,7 +329,7 @@ HYA_Result InitGraph(HYA_Graph *graph, Context *ctx,
     return HYA_ERR_OUT_OF_MEMORY;
   }
   for (ptrdiff_t i = 0; i < n; i++) {
-    graph->str_ptrs[i] = ContextAllocFromAligned(
+    graph->str_ptrs[i] = (const char *)ContextAllocFromAligned(
         ctx, HYA_MEM_STRING, &graph->str_ptrs[i],
         strlen(ctx->str_map[i].key) + 1, _Alignof(char));
     if (!graph->str_ptrs[i]) {
