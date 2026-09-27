@@ -409,7 +409,7 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
   if (!times) {
     LOG_ERROR("failed to allocate %zu times\n", max_num_times);
     res = HYA_ERR_OUT_OF_MEMORY;
-    goto cleanup_4;
+    goto cleanup_3;
   }
 
   float *values = (float *)malloc(sizeof(float) * max_num_values);
@@ -451,30 +451,49 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
     }
   }
 
-  size_t num_keys = ((max_time - min_time) * sample_rate) + 1;
+  motion->t_keys = NULL;
+  motion->r_keys = NULL;
+  motion->s_keys = NULL;
 
-  motion->num_keys = num_keys;
-  motion->num_joints = num_nodes;
-  motion->sample_rate = sample_rate;
-
-  if (num_keys == 0) {
-    motion->t_keys = NULL;
-    motion->r_keys = NULL;
-    motion->s_keys = NULL;
+  if (min_time > max_time) {
+    // no keys?
     res = HYA_OK;
     goto cleanup_4;
   }
+
+  size_t num_keys = ((max_time - min_time) * sample_rate) + 1;
+  motion->num_keys = num_keys;
+  motion->num_joints = num_nodes;
+  motion->sample_rate = sample_rate;
 
   // allocate keys
   motion->t_keys = (HYA_Vec3 *)ContextAllocFromAligned(
       ctx, HYA_MEM_MOTION, &motion->t_keys,
       sizeof(HYA_Vec3) * num_keys * num_nodes, _Alignof(HYA_Vec3));
+  if (!motion->t_keys) {
+    LOG_ERROR("failed to allocate t_keys, %zu bytes\n",
+              sizeof(HYA_Vec3) * num_keys * num_nodes);
+    res = HYA_ERR_OUT_OF_MEMORY;
+    goto cleanup_4;
+  }
   motion->r_keys = (HYA_Quat *)ContextAllocFromAligned(
       ctx, HYA_MEM_MOTION, &motion->r_keys,
       sizeof(HYA_Quat) * num_keys * num_nodes, _Alignof(HYA_Quat));
+  if (!motion->r_keys) {
+    LOG_ERROR("failed to allocate r_keys, %zu bytes\n",
+              sizeof(HYA_Quat) * num_keys * num_nodes);
+    res = HYA_ERR_OUT_OF_MEMORY;
+    goto cleanup_4;
+  }
   motion->s_keys = (float *)ContextAllocFromAligned(
       ctx, HYA_MEM_MOTION, &motion->s_keys,
       sizeof(float) * num_keys * num_nodes, _Alignof(float));
+  if (!motion->s_keys) {
+    LOG_ERROR("failed to allocate s_keys, %zu bytes\n",
+              sizeof(float) * num_keys * num_nodes);
+    res = HYA_ERR_OUT_OF_MEMORY;
+    goto cleanup_4;
+  }
 
   // initialize keys with tpose.
   for (size_t i = 0; i < motion->num_keys; i++) {
@@ -535,19 +554,24 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
     }
     size_t times_count =
         cgltf_accessor_unpack_floats(in_acc, times, max_num_times);
+    if (times_count == 0) {
+      continue;
+    }
     size_t values_count =
         cgltf_accessor_unpack_floats(out_acc, values, max_num_values);
-    size_t k = 0;
+    int k = 0;
     for (size_t j = 0; j < num_keys; j++) {
       size_t jj = j * num_nodes + joint_idx;
       float t = (j / sample_rate) + min_time;
       while (times[k] <= t && k < times_count - 1) {
         k++;
       }
-      size_t curr = k - 1 >= 0 ? k - 1 : k;
-      size_t next = k;
+      int curr = k - 1 >= 0 ? k - 1 : k;
+      int next = k;
       float alpha;
       if (k == times_count - 1) {
+        alpha = 0.0f;
+      } else if (next == curr) {
         alpha = 0.0f;
       } else {
         alpha = (t - times[curr]) / (times[next] - times[curr]);
@@ -562,7 +586,7 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
                                         *(((HYA_Quat *)values) + next), alpha);
           break;
         case cgltf_animation_path_type_scale:
-          if (out_acc->type != cgltf_type_scalar) {
+          if (out_acc->type == cgltf_type_scalar) {
             motion->s_keys[jj] = FloatLerp(values[curr], values[next], alpha);
           } else {
             motion->s_keys[jj] =

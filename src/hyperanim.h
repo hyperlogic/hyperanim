@@ -329,7 +329,7 @@ HYA_Result HYA_MotionNodeAnimate(const HYA_MotionNode *node, float dt,
   const HYA_Motion *m = &node->motion;
 
   graph_state->t += dt;
-  if (graph_state->t > m->num_keys / m->sample_rate) {
+  while (graph_state->t >= m->num_keys / m->sample_rate) {
     graph_state->t -= m->num_keys / m->sample_rate;
   }
   int i = graph_state->t * m->sample_rate;
