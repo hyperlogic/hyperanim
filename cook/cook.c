@@ -49,8 +49,6 @@ static HYA_Result CookGraph(Context *ctx, HYA_Graph *graph,
   // munge all the ptrs to be relative to the graph base addr.
   for (ptrdiff_t i = 1; i < arrlen(ctx->reloc_arr); i++) {
     const RelocInfo *r = ctx->reloc_arr + i;
-    printf("reloc[%td] %s: pp = %td, p = %td, size = %zu\n", i,
-           categories[r->cat], r->pp, r->p, r->size);
     size_t offset = (size_t)r->pp;
     fwrite(&offset, sizeof(size_t), 1, fp);
     *(uintptr_t *)(ctx->arena->base + r->pp) = (uintptr_t)r->p;

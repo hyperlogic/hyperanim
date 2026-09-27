@@ -287,6 +287,8 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
   cgltf_data *data = NULL;
   HYA_Result res = HYA_ERR_FAILURE;
 
+  bool debug = 0 == strcmp(filename, "anim/run.glb");
+
   char full[1024];
   int n = snprintf(full, sizeof full, "%s/%s", ctx->dirname, filename);
   if (n < 0 || (size_t)n >= sizeof full) {
@@ -375,28 +377,6 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
     hmput(sampler_to_idx_map, anim->samplers + i, i);
   }
 
-  /*
-  printf("AJT: name = %s\n", anim->name);
-  printf("AJT: samplers_count = %zu\n", anim->samplers_count);
-  for (size_t i = 0; i < anim->samplers_count; i++) {
-    printf("AJT:    sampler[%zu]\n", i);
-    printf("AJT:        input = %p\n", anim->samplers[i].input);
-    PrintAccessor(anim->samplers[i].input);
-    printf("AJT:        output = %p\n", anim->samplers[i].output);
-    PrintAccessor(anim->samplers[i].output);
-    printf("AJT:        interp = %s\n",
-           anim->samplers[i].interpolation == 0
-               ? "linear"
-               : (anim->samplers[i].interpolation == 1 ? "step" : "cubic"));
-  }
-  printf("AJT: channels_count = %zu\n", anim->channels_count);
-  for (size_t i = 0; i < anim->channels_count; i++) {
-    printf("AJT:    channel[%zu]\n", i);
-    PrintChannel(&anim->channels[i]);
-  }
-  printf("AJT: extensions_count = %zu\n", anim->extensions_count);
-  */
-
   // first pass: figure out how many times and values to allocate.
   size_t max_num_times = 0;
   size_t max_num_values = 0;
@@ -424,8 +404,6 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
       max_num_values = num_values;
     }
   }
-  printf("AJT: max_num_times = %zu, max_num_values = %zu\n", max_num_times,
-         max_num_values);
 
   float *times = (float *)malloc(sizeof(float) * max_num_times);
   if (!times) {
@@ -472,34 +450,41 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
       }
     }
   }
-  printf("AJT: times min/max = %.5f, %.5f\n", min_time, max_time);
 
   size_t num_keys = ((max_time - min_time) * sample_rate) + 1;
-  printf("AJT: num_keys = %zu\n", num_keys);
+
   motion->num_keys = num_keys;
+  motion->num_joints = num_nodes;
+  motion->sample_rate = sample_rate;
 
   if (num_keys == 0) {
-    motion->s_keys = NULL;
-    motion->r_keys = NULL;
     motion->t_keys = NULL;
-    motion->num_joints = num_nodes;
-    motion->sample_rate = sample_rate;
+    motion->r_keys = NULL;
+    motion->s_keys = NULL;
     res = HYA_OK;
     goto cleanup_4;
   }
 
   // allocate keys
-  motion->s_keys = (float *)ContextAllocFromAligned(
-      ctx, HYA_MEM_MOTION, &motion->s_keys, sizeof(float) * num_keys,
-      _Alignof(float));
-  motion->r_keys = (HYA_Quat *)ContextAllocFromAligned(
-      ctx, HYA_MEM_MOTION, &motion->r_keys, sizeof(HYA_Quat) * num_keys,
-      _Alignof(HYA_Quat));
   motion->t_keys = (HYA_Vec3 *)ContextAllocFromAligned(
-      ctx, HYA_MEM_MOTION, &motion->t_keys, sizeof(HYA_Vec3) * num_keys,
-      _Alignof(HYA_Vec3));
-  motion->num_joints = num_nodes;
-  motion->sample_rate = sample_rate;
+      ctx, HYA_MEM_MOTION, &motion->t_keys,
+      sizeof(HYA_Vec3) * num_keys * num_nodes, _Alignof(HYA_Vec3));
+  motion->r_keys = (HYA_Quat *)ContextAllocFromAligned(
+      ctx, HYA_MEM_MOTION, &motion->r_keys,
+      sizeof(HYA_Quat) * num_keys * num_nodes, _Alignof(HYA_Quat));
+  motion->s_keys = (float *)ContextAllocFromAligned(
+      ctx, HYA_MEM_MOTION, &motion->s_keys,
+      sizeof(float) * num_keys * num_nodes, _Alignof(float));
+
+  // initialize keys with tpose.
+  for (size_t i = 0; i < motion->num_keys; i++) {
+    for (size_t j = 0; j < motion->num_joints; j++) {
+      size_t ii = i * motion->num_joints + j;
+      motion->t_keys[ii] = skeleton->xforms[j].t;
+      motion->r_keys[ii] = skeleton->xforms[j].r;
+      motion->s_keys[ii] = skeleton->xforms[j].s;
+    }
+  }
 
   // fill in the keys.
   for (size_t i = 0; i < anim->channels_count; i++) {
@@ -518,11 +503,11 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
     }
     // validate out_acc type
     switch (channel->target_path) {
-      case cgltf_animation_path_type_scale:
-        if (out_acc->type != cgltf_type_scalar &&
-            out_acc->type != cgltf_type_vec3) {
-          LOG_WARNING("unsupported accessor type for scale! %d, skipping!\n",
-                      (int)out_acc->type);
+      case cgltf_animation_path_type_translation:
+        if (out_acc->type != cgltf_type_vec3) {
+          LOG_WARNING(
+              "unsupported accessor type for translation! %d, skipping!\n",
+              (int)out_acc->type);
           continue;
         }
         break;
@@ -533,11 +518,11 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
           continue;
         }
         break;
-      case cgltf_animation_path_type_translation:
-        if (out_acc->type != cgltf_type_vec3) {
-          LOG_WARNING(
-              "unsupported accessor type for translation! %d, skipping!\n",
-              (int)out_acc->type);
+      case cgltf_animation_path_type_scale:
+        if (out_acc->type != cgltf_type_scalar &&
+            out_acc->type != cgltf_type_vec3) {
+          LOG_WARNING("unsupported accessor type for scale! %d, skipping!\n",
+                      (int)out_acc->type);
           continue;
         }
         break;
@@ -559,8 +544,8 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
       while (times[k] <= t && k < times_count - 1) {
         k++;
       }
-      size_t curr = k;
-      size_t next = k + 1 ? k < times_count - 1 : k;
+      size_t curr = k - 1 >= 0 ? k - 1 : k;
+      size_t next = k;
       float alpha;
       if (k == times_count - 1) {
         alpha = 0.0f;
@@ -568,6 +553,14 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
         alpha = (t - times[curr]) / (times[next] - times[curr]);
       }
       switch (channel->target_path) {
+        case cgltf_animation_path_type_translation:
+          motion->t_keys[jj] = Vec3Lerp(*(((HYA_Vec3 *)values) + curr),
+                                        *(((HYA_Vec3 *)values) + next), alpha);
+          break;
+        case cgltf_animation_path_type_rotation:
+          motion->r_keys[jj] = QuatLerp(*(((HYA_Quat *)values) + curr),
+                                        *(((HYA_Quat *)values) + next), alpha);
+          break;
         case cgltf_animation_path_type_scale:
           if (out_acc->type != cgltf_type_scalar) {
             motion->s_keys[jj] = FloatLerp(values[curr], values[next], alpha);
@@ -575,14 +568,6 @@ HYA_Result InitMotionFromGLTF(const char *filename, HYA_Skeleton *skeleton,
             motion->s_keys[jj] =
                 FloatLerp(values[curr * 3], values[next * 3], alpha);
           }
-          break;
-        case cgltf_animation_path_type_rotation:
-          motion->r_keys[jj] = QuatLerp(*(((HYA_Quat *)values) + curr),
-                                        *(((HYA_Quat *)values) + next), alpha);
-          break;
-        case cgltf_animation_path_type_translation:
-          motion->t_keys[jj] = Vec3Lerp(*(((HYA_Vec3 *)values) + curr),
-                                        *(((HYA_Vec3 *)values) + next), alpha);
           break;
         default:
           break;

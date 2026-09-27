@@ -253,7 +253,6 @@ HYA_Result HYA_GraphNew(HYA_Graph **graph, const char *filename) {
   p += sizeof(size_t);
   for (size_t i = 0; i < num_offsets; i++) {
     size_t offset = *(size_t *)p;
-    printf("AJT: offset[%zu] = %zu\n", i, offset);
     p += sizeof(size_t);
     unsigned long *ptr = (unsigned long *)(base + offset);
     *ptr = (unsigned long)(base + *ptr);
@@ -333,13 +332,13 @@ HYA_Result HYA_MotionNodeAnimate(const HYA_MotionNode *node, float dt,
   if (graph_state->t > m->num_keys / m->sample_rate) {
     graph_state->t -= m->num_keys / m->sample_rate;
   }
-  int i = graph_state->t / m->sample_rate;
+  int i = graph_state->t * m->sample_rate;
 
   for (HYA_SIZE j = 0; j < m->num_joints; j++) {
     HYA_Xform *xform = graph_state->skeleton.xforms + j;
-    xform->s = m->s_keys[i * m->num_joints + j];
-    xform->r = m->r_keys[i * m->num_joints + j];
-    xform->t = m->t_keys[i * m->num_joints + j];
+    size_t jj = i * m->num_joints + j;
+    *xform =
+        (HYA_Xform){.t = m->t_keys[jj], .r = m->r_keys[jj], .s = m->s_keys[jj]};
   }
 
   return HYA_OK;
